@@ -1,0 +1,6 @@
+__pycache__
+
+.tox
+
+data_generation/data
+data_generation/assets

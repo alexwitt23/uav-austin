@@ -1,0 +1,16 @@
+model:
+  type: "detection"
+  backbone: "efficientnet-b0"
+training:
+  optimizer: 
+    type: "SGD"
+    lr: 1e-4
+    momentum: 0.9
+    weight_decay: 1e-5
+  epochs: 30
+  gpu: true
+  train_batch_size: 8
+  eval_batch_size: 64
+  save_best: true
+  
+  

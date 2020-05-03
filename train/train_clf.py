@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+""" Train a classifier to determine if image crops are background 
+or targets. """
+
+import argparse
+import pathlib
+from typing import Tuple
+import yaml
+
+import torch
+
+from train import datasets
+from train.train_utils import model_saver
+from models import efficientnet
+from data_generation import generate_config
+
+_LOG_INTERVAL = 50
+
+
+def train(model_cfg: dict, train_cfg: dict,) -> None:
+
+    # TODO(alex) these paths should be in the generate config
+    train_loader = create_data_loader(train_cfg, generate_config.DATA_DIR / "clf_train")
+    eval_loader = create_data_loader(train_cfg, generate_config.DATA_DIR / "clf_val")
+
+    use_cuda = train_cfg.get("gpu", False)
+    save_best = train_cfg.get("save_best", False)
+    if save_best:
+        highest_score = 0
+
+    clf_model = efficientnet.EfficientNet(model_cfg["backbone"], num_classes=2)
+    clf_model.load_state_dict(torch.load("/home/alex/runs/uav-clf/clf-0.8315.pt"))
+    if use_cuda:
+        clf_model.cuda()
+
+    optimizer = create_optimizer(train_cfg["optimizer"], clf_model)
+
+    # TODO(alex) make this configurable
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, len(train_loader), 1e-7
+    )
+
+    # TODO(alex) make this an adaptive lr
+    loss_fn = torch.nn.CrossEntropyLoss()
+
+    epochs = train_cfg.get("epochs", 0)
+    assert epochs > 0, "Please supply epoch > 0"
+
+    for epoch in range(epochs):
+
+        all_losses = []
+        for idx, (data, labels) in enumerate(train_loader):
+
+            optimizer.zero_grad()
+
+            if use_cuda:
+                data = data.cuda()
+                labels = labels.cuda()
+
+            out = clf_model(data)
+            losses = loss_fn(out, labels)
+            all_losses.append(losses.item())
+            # Compute the gradient throughout the model graph
+            losses.backward()
+            # Perform the weight updates
+            optimizer.step()
+            # Update the learning rate
+            lr_scheduler.step()
+
+            if idx % _LOG_INTERVAL == 0:
+                print(
+                    f"Epoch: {epoch} step {idx}, loss {sum(all_losses) / len(all_losses):.5}"
+                )
+
+        # Call evaluation function
+        clf_model.eval()
+        eval_acc = eval(clf_model, eval_loader, use_cuda, save_best, highest_score)
+        highest_score = eval_acc if eval_acc > highest_score else eval_acc
+        clf_model.train()
+
+        print(
+            f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5} \n"
+            f"Eval accuracy: {eval_acc:.4}"
+        )
+
+
+def eval(
+    clf_model: efficientnet.EfficientNet,
+    eval_loader: torch.utils.data.DataLoader,
+    use_cuda: bool = False,
+    save_best: bool = False,
+    previous_best: float = None,
+) -> float:
+    """ Evalulate the model against the evaulation set. Save the best 
+    weights if specified. """
+
+    total_num, num_correct = 0, 0
+    with torch.no_grad():
+        for data, labels in eval_loader:
+            if use_cuda:
+                data = data.cuda()
+                labels = labels.cuda()
+
+            out = clf_model(data)
+            _, predicted = torch.max(out.data, 1)
+            total_num += labels.size(0)
+            num_correct += (predicted == labels).sum().item()
+
+    accuracy = num_correct / total_num
+
+    if save_best and accuracy > previous_best:
+        model_saver.save_model(
+            clf_model, pathlib.Path(f"~/runs/uav-clf/clf-{accuracy:.5}.pt").expanduser()
+        )
+
+    return accuracy
+
+
+def create_data_loader(
+    train_cfg: dict, data_dir: pathlib.Path,
+) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    batch_size = train_cfg.get("batch_size", 64)
+
+    assert data_dir.is_dir(), data_dir
+
+    dataset = datasets.ClfDataset(data_dir, img_ext=generate_config.IMAGE_EXT,)
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, pin_memory=True, shuffle=True
+    )
+    return loader
+
+
+def create_optimizer(
+    optim_cfg: dict, model: efficientnet.EfficientNet
+) -> torch.optim.Optimizer:
+    """ Take in optimizer config and create the optimizer for training. """
+    name = optim_cfg.get("type", None)
+    if name.lower() == "sgd":
+        lr = float(optim_cfg["lr"])
+        momentum = float(optim_cfg["momentum"])
+        weight_decay = float(optim_cfg["weight_decay"])
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=lr,
+            momentum=momentum,
+            weight_decay=weight_decay,
+            nesterov=True,
+        )
+    elif name.lower() == "rmsprop":
+        lr = float(optim_cfg["lr"])
+        momentum = float(optim_cfg["momentum"])
+        weight_decay = float(optim_cfg["weight_decay"])
+        optimizer = torch.optim.RMSprop(
+            model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay
+        )
+    else:
+        raise ValueError(f"Improper optimizer supplied {name}.")
+
+    return optimizer
+
+
+if __name__ == "__main__":
+    torch.random.manual_seed(42)
+
+    parser = argparse.ArgumentParser(
+        description="Trainer code for classifcation models."
+    )
+    parser.add_argument(
+        "--model_config",
+        required=True,
+        type=pathlib.Path,
+        help="Path to yaml model definition.",
+    )
+    args = parser.parse_args()
+
+    config_path = args.model_config.expanduser()
+    assert config_path.is_file(), f"Can't find {config_path}."
+
+    # Load the model config
+    with config_path.open("r") as f:
+        config = yaml.safe_load(f)
+
+    model_cfg = config["model"]
+    train_cfg = config["training"]
+
+    train(model_cfg, train_cfg)
