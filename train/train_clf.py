@@ -38,6 +38,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         num_classes=2
     )
     if use_cuda:
+        torch.backends.cudnn.benchmark = True
         clf_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], clf_model)
@@ -81,7 +82,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         # Call evaluation function
         clf_model.eval()
         eval_acc = eval(clf_model, eval_loader, use_cuda, save_best, highest_score, save_dir)
-        highest_score = eval_acc if eval_acc > highest_score else eval_acc
+        highest_score = eval_acc if eval_acc > highest_score else highest_score
         clf_model.train()
 
         print(

@@ -20,9 +20,13 @@ class Classifier(torch.nn.Module):
         num_classes: int = 2,
         version: str = None,
         backbone: str = None,
+        use_cuda: bool = torch.cuda.is_available(),
+        half_precision: bool = False
     ):
         super().__init__()
         self.num_classes = num_classes
+        self.use_cuda = use_cuda
+        self.half_precision = half_precision
         if backbone is None and version is None:
             raise ValueError("Must supply either model version or backbone to load")
         
@@ -42,8 +46,15 @@ class Classifier(torch.nn.Module):
             # If no version supplied, just load the backbone
             self.model = self._load_backbone(backbone)
 
+        if self.use_cuda and self.half_precision:
+            self.model.cuda()
+            self.model.half()
+
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        # If using cuda and not training, assume inference.
+        if self.use_cuda and self.half_precision:
+            x = x.half()
         return self.model(x)
 
     def _load_backbone(self, backbone: str) -> torch.nn.Module:
