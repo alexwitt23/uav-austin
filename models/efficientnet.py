@@ -109,7 +109,6 @@ class Swish(torch.nn.Module):
         super().__init__()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-
         return x * torch.sigmoid(x)
 
 

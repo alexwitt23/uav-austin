@@ -2,8 +2,11 @@
 """ Train a classifier to classify images as backgroud or targets. """
 
 import argparse
+import datetime
 import pathlib
 from typing import Tuple
+import tarfile
+import shutil
 import yaml
 
 import torch
@@ -17,7 +20,7 @@ _LOG_INTERVAL = 50
 _SAVE_DIR = pathlib.Path("~/runs/uav-clf").expanduser()
 
 
-def train(model_cfg: dict, train_cfg: dict) -> None:
+def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> None:
 
     # TODO(alex) these paths should be in the generate config
     train_loader = create_data_loader(train_cfg, generate_config.DATA_DIR / "clf_train")
@@ -26,7 +29,7 @@ def train(model_cfg: dict, train_cfg: dict) -> None:
     use_cuda = train_cfg.get("gpu", False)
     save_best = train_cfg.get("save_best", False)
     if save_best:
-        highest_score = 0
+        highest_score = 0.0
 
     clf_model = classifier.Classifier(
         backbone=model_cfg["backbone"], 
@@ -54,7 +57,6 @@ def train(model_cfg: dict, train_cfg: dict) -> None:
 
         all_losses = []
         for idx, (data, labels) in enumerate(train_loader):
-
             optimizer.zero_grad()
 
             if use_cuda:
@@ -78,12 +80,12 @@ def train(model_cfg: dict, train_cfg: dict) -> None:
 
         # Call evaluation function
         clf_model.eval()
-        eval_acc = eval(clf_model, eval_loader, use_cuda, save_best, highest_score)
+        eval_acc = eval(clf_model, eval_loader, use_cuda, save_best, highest_score, save_dir)
         highest_score = eval_acc if eval_acc > highest_score else eval_acc
         clf_model.train()
 
         print(
-            f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5} \n"
+            f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5}, "
             f"Eval accuracy: {eval_acc:.4}"
         )
 
@@ -94,6 +96,7 @@ def eval(
     use_cuda: bool = False,
     save_best: bool = False,
     previous_best: float = None,
+    save_dir: pathlib.Path = None
 ) -> float:
     """ Evalulate the model against the evaulation set. Save the best 
     weights if specified. """
@@ -113,8 +116,14 @@ def eval(
     accuracy = num_correct / total_num
 
     if save_best and accuracy > previous_best:
+        print(f"Saving model with accuracy {accuracy:.5}.")
+        # Delete thee previous best
+        previous_best = save_dir / f"clf-{previous_best:.5}.pt"
+        if previous_best.is_file():
+            previous_best.unlink()
+            
         model_saver.save_model(
-            clf_model, _SAVE_DIR / f"clf-{accuracy:.5}.pt"
+            clf_model, save_dir / f"clf-{accuracy:.5}.pt"
         )
 
     return accuracy
@@ -186,6 +195,20 @@ if __name__ == "__main__":
 
     model_cfg = config["model"]
     train_cfg = config["training"]
+    
+    save_best = train_cfg.get("save_best", False)
+    # If save weights, copy in this config file. The config file
+    # will be used to load the saved model.
+    save_dir = None
+    if save_best:
+        save_dir = _SAVE_DIR / (datetime.datetime.now().isoformat().split(".")[0])
+        save_dir.mkdir(exist_ok=True, parents=True)
+        shutil.copy(config_path, save_dir / "config.yaml")
 
-    _SAVE_DIR.mkdir(exist_ok=True, parents=True)
-    train(model_cfg, train_cfg)
+    train(model_cfg, train_cfg, save_dir)
+
+    # Create tar archive if best weights are saved. 
+    if save_best:
+        with tarfile.open(save_dir / "clf-model.tar.gz", mode='w:gz') as tar:
+            for model_file in save_dir.glob("*"):
+                tar.add(model_file, arcname=model_file.name)
