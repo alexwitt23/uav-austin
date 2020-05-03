@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-""" Train a classifier to determine if image crops are background 
-or targets. """
+""" Train a classifier to classify images as backgroud or targets. """
 
 import argparse
 import pathlib
@@ -11,13 +10,14 @@ import torch
 
 from train import datasets
 from train.train_utils import model_saver
-from models import efficientnet
+from models import classifier
 from data_generation import generate_config
 
 _LOG_INTERVAL = 50
+_SAVE_DIR = pathlib.Path("~/runs/uav-clf").expanduser()
 
 
-def train(model_cfg: dict, train_cfg: dict,) -> None:
+def train(model_cfg: dict, train_cfg: dict) -> None:
 
     # TODO(alex) these paths should be in the generate config
     train_loader = create_data_loader(train_cfg, generate_config.DATA_DIR / "clf_train")
@@ -28,8 +28,12 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
     if save_best:
         highest_score = 0
 
-    clf_model = efficientnet.EfficientNet(model_cfg["backbone"], num_classes=2)
-    clf_model.load_state_dict(torch.load("/home/alex/runs/uav-clf/clf-0.8315.pt"))
+    clf_model = classifier.Classifier(
+        backbone=model_cfg["backbone"], 
+        img_width=generate_config.PRECLF_SIZE[0], 
+        img_height=generate_config.PRECLF_SIZE[0], 
+        num_classes=2
+    )
     if use_cuda:
         clf_model.cuda()
 
@@ -85,7 +89,7 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
 
 
 def eval(
-    clf_model: efficientnet.EfficientNet,
+    clf_model: torch.nn.Module,
     eval_loader: torch.utils.data.DataLoader,
     use_cuda: bool = False,
     save_best: bool = False,
@@ -110,7 +114,7 @@ def eval(
 
     if save_best and accuracy > previous_best:
         model_saver.save_model(
-            clf_model, pathlib.Path(f"~/runs/uav-clf/clf-{accuracy:.5}.pt").expanduser()
+            clf_model, _SAVE_DIR / f"clf-{accuracy:.5}.pt"
         )
 
     return accuracy
@@ -131,7 +135,7 @@ def create_data_loader(
 
 
 def create_optimizer(
-    optim_cfg: dict, model: efficientnet.EfficientNet
+    optim_cfg: dict, model: torch.nn.Module
 ) -> torch.optim.Optimizer:
     """ Take in optimizer config and create the optimizer for training. """
     name = optim_cfg.get("type", None)
@@ -183,4 +187,5 @@ if __name__ == "__main__":
     model_cfg = config["model"]
     train_cfg = config["training"]
 
+    _SAVE_DIR.mkdir(exist_ok=True, parents=True)
     train(model_cfg, train_cfg)

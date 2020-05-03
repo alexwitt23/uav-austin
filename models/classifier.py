@@ -6,6 +6,7 @@ import pathlib
 import yaml 
 
 import torch
+import torchvision
 
 from utils import pull_assets
 from models import efficientnet
@@ -38,6 +39,7 @@ class Classifier(torch.nn.Module):
             self.model = self._load_backbone(backbone)
             self.model.load_state_dict(torch.load(model_path))
         else:
+            # If no version supplied, just load the backbone
             self.model = self._load_backbone(backbone)
 
 
@@ -50,7 +52,15 @@ class Classifier(torch.nn.Module):
                 model = efficientnet.EfficientNet(
                 backbone=backbone, num_classes=self.num_classes
             )
+        elif backbone == "resnet18":
+            model = torchvision.models.resnet18(num_classes=self.num_classes)
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
         
         return model
+
+    def classify(self, x: torch.Tensor) -> torch.Tensor:
+        """ Take in an image batch and return the class 
+        for each image. """
+        _, predicted = torch.max(out.data, 1)
+        return predicted

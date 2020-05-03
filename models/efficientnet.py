@@ -391,9 +391,9 @@ class EfficientNet(torch.nn.Module):
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
 
-        features = self.model_layers(x)
+        features = self.pre_classification(self.model_layers(x))
         features = features.view(features.shape[0], -1)
-        return self.model_head(self.pre_classification(features))
+        return self.model_head(features)
 
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
         """ Get the outputs at each level. """
