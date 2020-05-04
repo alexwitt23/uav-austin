@@ -37,6 +37,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         img_height=generate_config.PRECLF_SIZE[0],
         num_classes=2,
     )
+    clf_model.apply(classifier.init)
     if use_cuda:
         torch.backends.cudnn.benchmark = True
         clf_model.cuda()
@@ -45,10 +46,8 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
     # TODO(alex) make this configurable
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, len(train_loader), 1e-7
+        optimizer, len(train_loader), 1e-9
     )
-
-    # TODO(alex) make this an adaptive lr
     loss_fn = torch.nn.CrossEntropyLoss()
 
     epochs = train_cfg.get("epochs", 0)
@@ -119,11 +118,13 @@ def eval(
     if save_best and accuracy > previous_best:
         print(f"Saving model with accuracy {accuracy:.5}.")
         # Delete thee previous best
-        previous_best = save_dir / f"clf-{previous_best:.5}.pt"
+        previous_best = save_dir / "classifier.pt"
         if previous_best.is_file():
             previous_best.unlink()
-
-        model_saver.save_model(clf_model, save_dir / f"clf-{accuracy:.5}.pt")
+            
+        model_saver.save_model(
+            clf_model, save_dir / "classifier.pt"
+        )
 
     return accuracy
 

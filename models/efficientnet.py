@@ -11,6 +11,9 @@ import math
 import torch
 import numpy as np
 
+from models import classifier
+
+
 _MODEL_SCALES = {
     # (width_coefficient, depth_coefficient, resolution, dropout_rate)
     "efficientnet-b0": (1.0, 1.0, 224, 0.0),
@@ -109,7 +112,7 @@ class Swish(torch.nn.Module):
         super().__init__()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return x * torch.sigmoid(x)
+        return torch.nn.functional.relu(x)
 
 
 # TODO(alex) this is confusing. Copied right from original implemenation.
@@ -189,12 +192,15 @@ class DepthwiseConv(torch.nn.Module):
             torch.nn.BatchNorm2d(num_features=channels),
             Swish(),
         )
+<<<<<<< HEAD
+=======
         fan_out = int(kernel_size * channels ** 2)
         for layer in self.layers.modules():
             if isinstance(layer, torch.nn.Conv2d):
                 torch.nn.init.normal_(
                     layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
                 )
+>>>>>>> c8b44f460475f458e0a71453113a62a7f22c9133
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)
@@ -229,12 +235,15 @@ class SqueezeExcitation(torch.nn.Module):
             ),
             torch.nn.Sigmoid(),
         )
+<<<<<<< HEAD
+=======
         fan_out = int(expanded_channels ** 2)
         for layer in self.layers.modules():
             if isinstance(layer, torch.nn.Conv2d):
                 torch.nn.init.normal_(
                     layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
                 )
+>>>>>>> c8b44f460475f458e0a71453113a62a7f22c9133
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         """ Apply the squeezing and excitation, then elementwise multiplacation of 
@@ -292,6 +301,8 @@ class MBConvBlock(torch.nn.Module):
         ]
         self.layers = torch.nn.Sequential(*self.layers)
 
+<<<<<<< HEAD
+=======
         fan_out = int(expanded_channels * out_channels)
         for layer in self.layers.modules():
             if isinstance(layer, torch.nn.Conv2d):
@@ -299,11 +310,12 @@ class MBConvBlock(torch.nn.Module):
                     layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
                 )
 
+>>>>>>> c8b44f460475f458e0a71453113a62a7f22c9133
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.layers(x)
+        x = self.layers(x)
         if self.skip and self.in_channels == self.out_channels:
-            out += x
-        return out
+            x += x
+        return x
 
 
 class EfficientNet(torch.nn.Module):
@@ -334,13 +346,6 @@ class EfficientNet(torch.nn.Module):
                 Swish(),
             )
         ]
-
-        fan_out = int(out_channels * 3 ** 2)
-        for layer in self.model_layers[0].modules():
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(
-                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
-                )
 
         # Now loop over the MBConv layer params
         for mb_params in _DEFAULT_MB_BLOCKS_ARGS:
