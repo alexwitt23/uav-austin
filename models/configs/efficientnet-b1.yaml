@@ -1,0 +1,15 @@
+model:
+  type: "classifier"
+  backbone: "efficientnet-b1"
+training:
+  optimizer: 
+    type: "SGD"
+    lr: 1e-1
+    momentum: 0.9
+    weight_decay: 1e-5
+  epochs: 30
+  gpu: true
+  batch_size: 50
+  save_best: true
+  
+  

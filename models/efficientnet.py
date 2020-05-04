@@ -11,6 +11,9 @@ import math
 import torch
 import numpy as np
 
+from models import classifier
+
+
 _MODEL_SCALES = {
     # (width_coefficient, depth_coefficient, resolution, dropout_rate)
     "efficientnet-b0": (1.0, 1.0, 224, 0.2),
@@ -109,7 +112,7 @@ class Swish(torch.nn.Module):
         super().__init__()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return x * torch.sigmoid(x)
+        return torch.nn.functional.relu(x)
 
 
 # TODO(alex) this is confusing. Copied right from original implemenation.
@@ -183,10 +186,6 @@ class DepthwiseConv(torch.nn.Module):
             torch.nn.BatchNorm2d(num_features=channels),
             Swish(),
         )
-        bias_value = -np.log((1 - 0.01) / 0.01)
-        for layer in self.layers.modules():
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.constant_(list(self.layers.modules())[2].bias, bias_value)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)
@@ -221,10 +220,6 @@ class SqueezeExcitation(torch.nn.Module):
             ),
             torch.nn.Sigmoid(),
         )
-
-        for layer in self.layers.modules():
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         """ Apply the squeezing and excitation, then elementwise multiplacation of 
@@ -282,15 +277,11 @@ class MBConvBlock(torch.nn.Module):
         ]
         self.layers = torch.nn.Sequential(*self.layers)
 
-        for layer in self.layers.modules():
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
-
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.layers(x)
+        x = self.layers(x)
         if self.skip and self.in_channels == self.out_channels:
-            out += x
-        return out
+            x += x
+        return x
 
 
 class EfficientNet(torch.nn.Module):
@@ -321,10 +312,6 @@ class EfficientNet(torch.nn.Module):
                 Swish(),
             )
         ]
-
-        for layer in self.model_layers:
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
 
         # Now loop over the MBConv layer params
         for mb_params in _DEFAULT_MB_BLOCKS_ARGS:

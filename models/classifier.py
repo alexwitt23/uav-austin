@@ -73,5 +73,22 @@ class Classifier(torch.nn.Module):
     def classify(self, x: torch.Tensor) -> torch.Tensor:
         """ Take in an image batch and return the class 
         for each image. """
-        _, predicted = torch.max(out.data, 1)
+        _, predicted = torch.max(self.model(x).data, 1)
         return predicted
+
+def init(module: torch.nn.Module) -> None:
+
+    if isinstance(module, torch.nn.Conv2d):
+        torch.nn.init.kaiming_normal_(module.weight, mode="fan_out")
+
+    elif isinstance(module, efficientnet.PointwiseConv):
+        for layer in module.children():
+            init(layer)
+
+    elif isinstance(module, efficientnet.DepthwiseConv):
+        for layer in module.children():
+            init(layer)
+
+    elif isinstance(module, efficientnet.SqueezeExcitation):
+        for layer in module.children():
+            init(layer)
