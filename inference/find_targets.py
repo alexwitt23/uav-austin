@@ -12,7 +12,9 @@ from models import classifier, detector
 from inference import preprocessing, types, color_cube
 from data_generation import generate_config
 
-_IMG_SIZES = generate_config.CONFIG.get("inputs", None)
+
+"""
+_IMG_SIZES = generate_config.get("inputs", None)
 crop_size = (
     _IMG_SIZES["cropping"]["width"],
     _IMG_SIZES["cropping"]["height"],
@@ -282,7 +284,7 @@ def _get_color_name(requested_color):
 
     return Color.NONE
 
-
+"""
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Script used to find targets in an image"
@@ -307,19 +309,27 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--clf_version",
-        required=True,
+        required=False,
         type=str,
-        default="v1",
+        default="dev",
         help="Version of the classifier model to use.",
     )
     parser.add_argument(
         "--det_version",
-        required=True,
+        required=False,
         type=str,
-        default="v1",
+        default="dev",
         help="Version of the detector model to use.",
     )
     args = parser.parse_args()
 
-    clf_model = classifier.Classifier()
-    det_model = detector.Detector()
+    clf_model = classifier.Classifier(
+        version=args.clf_version, 
+        img_width=generate_config.PRECLF_SIZE[0],
+        img_height=generate_config.PRECLF_SIZE[1]
+    )
+    det_model = detector.Detector(
+        version=args.det_version,
+        img_width=generate_config.DETECTOR_SIZE[0],
+        img_height=generate_config.DETECTOR_SIZE[1]       
+    )

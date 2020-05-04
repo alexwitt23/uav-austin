@@ -46,6 +46,8 @@ class Detector(torch.nn.Module):
             # If no version supplied, just load the backbone
             self.model = self._load_backbone(backbone)
 
+        self.model.eval()
+        
         if self.use_cuda and self.half_precision:
             self.model.cuda()
             self.model.half()

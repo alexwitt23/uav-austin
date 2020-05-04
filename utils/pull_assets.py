@@ -71,5 +71,5 @@ def untar_and_move(filename: pathlib.Path, destination: pathlib.Path) -> None:
 def download_model(model_type: str, version: str) -> pathlib.Path:
     assert model_type in ["classifier", "detector"], f"Unsupported model {model_type}."
     filename = f"{model_type}-{version}"
-    download_file(f"{filename}.tar.gz", config.ASSETS_DIR)
-    return config.ASSETS_DIR / filename / "clf.pt"
+    download_file(f"{filename}.tar.gz", config.ASSETS_DIR / filename)
+    return config.ASSETS_DIR / filename / f"{model_type}.pt"
