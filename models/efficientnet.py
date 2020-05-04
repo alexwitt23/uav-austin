@@ -13,7 +13,7 @@ import numpy as np
 
 _MODEL_SCALES = {
     # (width_coefficient, depth_coefficient, resolution, dropout_rate)
-    "efficientnet-b0": (1.0, 1.0, 224, 0.2),
+    "efficientnet-b0": (1.0, 1.0, 224, 0.0),
     "efficientnet-b1": (1.0, 1.1, 240, 0.2),
     "efficientnet-b2": (1.1, 1.2, 260, 0.3),
     "efficientnet-b3": (1.2, 1.4, 300, 0.3),
@@ -149,6 +149,12 @@ class PointwiseConv(torch.nn.Module):
             torch.nn.BatchNorm2d(num_features=out_channels),
             Swish(),
         )
+        fan_out = int(in_channels * out_channels)
+        for layer in self.layers.modules():
+            if isinstance(layer, torch.nn.Conv2d):
+                torch.nn.init.normal_(
+                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
+                )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)
@@ -183,10 +189,12 @@ class DepthwiseConv(torch.nn.Module):
             torch.nn.BatchNorm2d(num_features=channels),
             Swish(),
         )
-        bias_value = -np.log((1 - 0.01) / 0.01)
+        fan_out = int(kernel_size * channels ** 2)
         for layer in self.layers.modules():
             if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.constant_(list(self.layers.modules())[2].bias, bias_value)
+                torch.nn.init.normal_(
+                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
+                )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)
@@ -221,10 +229,12 @@ class SqueezeExcitation(torch.nn.Module):
             ),
             torch.nn.Sigmoid(),
         )
-
+        fan_out = int(expanded_channels ** 2)
         for layer in self.layers.modules():
             if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
+                torch.nn.init.normal_(
+                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
+                )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         """ Apply the squeezing and excitation, then elementwise multiplacation of 
@@ -282,9 +292,12 @@ class MBConvBlock(torch.nn.Module):
         ]
         self.layers = torch.nn.Sequential(*self.layers)
 
+        fan_out = int(expanded_channels * out_channels)
         for layer in self.layers.modules():
             if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
+                torch.nn.init.normal_(
+                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
+                )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         out = self.layers(x)
@@ -322,9 +335,12 @@ class EfficientNet(torch.nn.Module):
             )
         ]
 
-        for layer in self.model_layers:
+        fan_out = int(out_channels * 3 ** 2)
+        for layer in self.model_layers[0].modules():
             if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
+                torch.nn.init.normal_(
+                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
+                )
 
         # Now loop over the MBConv layer params
         for mb_params in _DEFAULT_MB_BLOCKS_ARGS:
@@ -393,7 +409,7 @@ class EfficientNet(torch.nn.Module):
         features = self.pre_classification(self.model_layers(x))
         features = features.view(features.shape[0], -1)
         return self.model_head(features)
-
+    
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
         """ Get the outputs at each level. """
         x1 = self.feature_levels[0](x)
