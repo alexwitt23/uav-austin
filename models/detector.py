@@ -20,6 +20,8 @@ class Detector(torch.nn.Module):
         num_classes: int = 2,
         version: str = None,
         backbone: str = None,
+        use_cuda: bool = torch.cuda.is_available(),
+        half_precision: bool = None,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -39,10 +41,14 @@ class Detector(torch.nn.Module):
             backbone = config.get("model", {}).get("backbone", None)
             # Construct the model, then load the state
             self.model = self._load_backbone(backbone)
-            self.model.load_state_dict(torch.load(model_path))
+            self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         else:
             # If no version supplied, just load the backbone
             self.model = self._load_backbone(backbone)
+
+        if self.use_cuda and self.half_precision:
+            self.model.cuda()
+            self.model.half()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
