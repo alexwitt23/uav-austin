@@ -7,53 +7,31 @@ import os
 
 import numpy as np
 import PIL.Image
-from PIL import ImageFilter
-from sklearn.cluster import KMeans
-import scipy.misc
-import scipy.cluster
-import heapq
 
 from models import classifier, detector
+from inference import preprocessing, types, color_cube
+from data_generation import generate_config
 
-
-"""
-from .preprocessing import extract_crops, resize_all
-from .types import Color, Shape, Target, BBox
-from .color_cube import ColorCube
-
-# Default Models w/default weights
-models = {
-    "frcnn": tfm.inference.DetectionModel(),
-    "clf": tfm.inference.ClfModel(),
-}
-
+_IMG_SIZES = generate_config.CONFIG.get("inputs", None)
 crop_size = (
-    tfm.CONFIG["inputs"]["cropping"]["width"],
-    tfm.CONFIG["inputs"]["cropping"]["height"],
+    _IMG_SIZES["cropping"]["width"],
+    _IMG_SIZES["cropping"]["height"],
 )
 
-overlap = tfm.CONFIG["inputs"]["cropping"]["overlap"]
+overlap = _IMG_SIZES["cropping"]["overlap"]
 
 pre_clf_size = (
-    tfm.CONFIG["inputs"]["preclf"]["width"],
-    tfm.CONFIG["inputs"]["preclf"]["height"],
+    _IMG_SIZES["preclf"]["width"],
+    _IMG_SIZES["preclf"]["height"],
 )
 
 det_size = (
-    tfm.CONFIG["inputs"]["detector"]["width"],
-    tfm.CONFIG["inputs"]["detector"]["height"],
+    _IMG_SIZES["detector"]["width"],
+    _IMG_SIZES["detector"]["height"],
 )
 
 
-def load_models():
-    print("Loading models.")
-    models["frcnn"].load()
-    models["clf"].load()
-    print("Loaded models.")
-
-
 def find_targets(pil_image, **kwargs):
-    Wrapper for finding targets which accepts a PIL image
     return find_targets_from_array(pil_image, **kwargs)
 
 
@@ -111,8 +89,6 @@ def _run_models(image):
 
 
 def _bboxes_to_targets(bboxes):
-    Produce targets from bounding boxes
-
     targets = []
     merged_bboxes = _merge_boxes(bboxes)
 
@@ -209,7 +185,6 @@ def _identify_properties(targets, full_image, padding=15):
 
 
 def _get_colors(image):
-    Find the primary and seconday colors of the the blob
 
     (color_a, count_a), (color_b, count_b) = _find_main_colors(image)
 
@@ -226,7 +201,6 @@ def _get_colors(image):
 
 
 def _find_main_colors(image):
-    Find the two main colors of the blob
     # TODO see: https://github.com/uavaustin/target-finder/issues/16
     ar = np.asarray(image)
     shape = ar.shape
@@ -308,7 +282,7 @@ def _get_color_name(requested_color):
 
     return Color.NONE
 
-"""
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Script used to find targets in an image"
@@ -348,5 +322,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     clf_model = classifier.Classifier()
-
-
+    det_model = detector.Detector()

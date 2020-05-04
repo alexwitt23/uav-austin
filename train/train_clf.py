@@ -32,10 +32,10 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         highest_score = 0.0
 
     clf_model = classifier.Classifier(
-        backbone=model_cfg["backbone"], 
-        img_width=generate_config.PRECLF_SIZE[0], 
-        img_height=generate_config.PRECLF_SIZE[0], 
-        num_classes=2
+        backbone=model_cfg.get("backbone", None),
+        img_width=generate_config.PRECLF_SIZE[0],
+        img_height=generate_config.PRECLF_SIZE[0],
+        num_classes=2,
     )
     clf_model.apply(classifier.init)
     if use_cuda:
@@ -96,7 +96,7 @@ def eval(
     use_cuda: bool = False,
     save_best: bool = False,
     previous_best: float = None,
-    save_dir: pathlib.Path = None
+    save_dir: pathlib.Path = None,
 ) -> float:
     """ Evalulate the model against the evaulation set. Save the best 
     weights if specified. """
@@ -143,9 +143,7 @@ def create_data_loader(
     return loader
 
 
-def create_optimizer(
-    optim_cfg: dict, model: torch.nn.Module
-) -> torch.optim.Optimizer:
+def create_optimizer(optim_cfg: dict, model: torch.nn.Module) -> torch.optim.Optimizer:
     """ Take in optimizer config and create the optimizer for training. """
     name = optim_cfg.get("type", None)
     if name.lower() == "sgd":
@@ -195,7 +193,7 @@ if __name__ == "__main__":
 
     model_cfg = config["model"]
     train_cfg = config["training"]
-    
+
     save_best = train_cfg.get("save_best", False)
     # If save weights, copy in this config file. The config file
     # will be used to load the saved model.
@@ -207,8 +205,8 @@ if __name__ == "__main__":
 
     train(model_cfg, train_cfg, save_dir)
 
-    # Create tar archive if best weights are saved. 
+    # Create tar archive if best weights are saved.
     if save_best:
-        with tarfile.open(save_dir / "clf-model.tar.gz", mode='w:gz') as tar:
+        with tarfile.open(save_dir / "clf-model.tar.gz", mode="w:gz") as tar:
             for model_file in save_dir.glob("*"):
                 tar.add(model_file, arcname=model_file.name)

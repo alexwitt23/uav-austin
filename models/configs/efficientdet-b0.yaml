@@ -1,6 +1,6 @@
 model:
   type: "detection"
-  backbone: "efficientnet-b0"
+  backbone: "efficientdet-b0"
 training:
   optimizer: 
     type: "SGD"

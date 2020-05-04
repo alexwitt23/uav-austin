@@ -7,8 +7,7 @@ import json
 
 from PIL import Image
 
-import target_finder_model as tfm
-
+"""
 from .classification import find_targets
 from .version import __version__
 
@@ -51,7 +50,7 @@ target_parser.add_argument(
 
 
 def run_targets(args):
-    """Run the targets subcommand."""
+    Run the targets subcommand.
     target_num = 0
 
     # Create the output directory if it doesn't already exist.
@@ -80,7 +79,7 @@ def run_targets(args):
 
 
 def _list_images(filenames):
-    """Turn the list of filenames into a list of images."""
+    Turn the list of filenames into a list of images.
     images = []
 
     for filename in filenames:
@@ -111,7 +110,7 @@ def _list_images(filenames):
 
 
 def _save_target_meta(filename_meta, filename_image, target):
-    """Save target metadata to a file."""
+    Save target metadata to a file.
     with open(filename_meta, "w") as f:
         meta = {
             "x": target.x,
@@ -134,3 +133,4 @@ def _save_target_meta(filename_meta, filename_image, target):
 # not provided, print the usage message and set the exit code to 1.
 target_parser.set_defaults(func=run_targets)
 parser.set_defaults(func=lambda _: parser.print_usage() or sys.exit(1))
+"""

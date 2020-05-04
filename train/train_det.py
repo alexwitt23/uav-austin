@@ -15,7 +15,7 @@ import numpy as np
 
 from train import datasets
 from train.train_utils import model_saver
-from models import efficientdet
+from models import detector
 from data_generation import generate_config
 from third_party import losses
 
@@ -30,7 +30,6 @@ def detections_to_dict(bboxes: list, image_paths: torch.Tensor) -> dict:
     for idx, image_boxes in enumerate(bboxes):
         for bbox in image_boxes:
             box = bbox.box.int().tolist()
-            print(box)
             detections.append(
                 {
                     "image_id": idx,
@@ -67,10 +66,13 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
 
     # Load the model and remove the classification head of the backbone.
     # We don't need the backbone to make classifications.
-    det_model = efficientdet.EfficientDet(
-        num_classes=37, params=(64, 3, 4), img_width=_IMG_WIDTH, img_height=_IMG_HEIGHT
+    det_model = detector.Detector(
+        backbone=model_cfg.get("backbone", None),
+        img_width=generate_config.PRECLF_SIZE[0],
+        img_height=generate_config.PRECLF_SIZE[0],
+        num_classes=37,
     )
-    det_model.backbone.delete_classification_head()
+    det_model.model.backbone.delete_classification_head()
     det_model.train()
     print(f"Model architecture: \n {det_model}")
 
@@ -107,7 +109,7 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
             cls_per_level, reg_per_level = det_model(images)
             # Compute the losses
             cls_loss, reg_loss = losses.compute_losses(
-                det_model.anchors.all_anchors,
+                det_model.model.anchors.all_anchors,
                 gt_classes=list(classes.unbind(0)),
                 gt_boxes=list(boxes.unbind(0)),
                 cls_per_level=cls_per_level,

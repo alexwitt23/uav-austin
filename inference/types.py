@@ -2,6 +2,8 @@
 
 from enum import Enum, unique
 
+from PIL import Image
+
 
 @unique
 class Color(Enum):
@@ -51,21 +53,23 @@ class Shape(Enum):
 
 
 class BBox:
-    def __init__(self, x1, y1, x2, y2):
+    def __init__(
+        self, x1: int, y1: int, x2: int, y2: int, image: Image.Image = None
+    ) -> None:
         self.x1 = x1
         self.y1 = y1
         self.x2 = x2
         self.y2 = y2
-        self.image = None
+        self.image = image
         self.meta = ""
         self.confidence = -1
 
     @property
-    def w(self):
+    def width(self) -> int:
         return self.x2 - self.x1
 
     @property
-    def h(self):
+    def height(self) -> int:
         return self.y2 - self.y1
 
 
@@ -104,18 +108,18 @@ class Target:
 
     def __init__(
         self,
-        x,
-        y,
-        width,
-        height,
-        shape=Shape.NAS,
-        orientation=0.0,
-        background_color=Color.NONE,
-        alphanumeric="",
-        alphanumeric_color=Color.NONE,
-        image=None,
-        confidence=0.0,
-    ):
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        shape: Shape = Shape.NAS,
+        orientation: float = 0.0,
+        background_color: Color = Color.NONE,
+        alphanumeric: str = "",
+        alphanumeric_color: Color = Color.NONE,
+        image: Image.Image = None,
+        confidence: float = 0.0,
+    ) -> None:
         """Create a new Target object."""
         self.x = x
         self.y = y
@@ -129,7 +133,7 @@ class Target:
         self.image = image
         self.confidence = confidence
 
-    def overlaps(self, other_target):
+    def overlaps(self, other_target: Shape) -> bool:
 
         if (
             self.x > other_target.x + other_target.width
@@ -145,10 +149,10 @@ class Target:
 
         return True
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"Target(x={self.x}, y={self.y}, width={self.width}, "
             f"height={self.height}, orientation={self.orientation}, "
