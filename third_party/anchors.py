@@ -13,9 +13,11 @@ class AnchorGenerator(torch.nn.Module):
         img_width: int,
         pyramid_levels: List[int],
         anchor_scales: List[int],
+        use_cuda: bool = False,
     ):
         super().__init__()
         self.pyramid_levels = pyramid_levels
+        self.cuda = use_cuda
         self.aspect_ratios = [0.5, 1, 2]
         self.sizes = [2 ** (level + 2) for level in pyramid_levels]
         self.strides = [2 ** level for level in pyramid_levels]
@@ -30,6 +32,8 @@ class AnchorGenerator(torch.nn.Module):
         )
         self.anchors_over_all_feature_maps = self._grid_anchors(grid_sizes)
         self.all_anchors = torch.cat(self.anchors_over_all_feature_maps)
+        if use_cuda:
+            self.all_anchors = self.all_anchors.cuda()
 
     def _generate_cell_anchors(
         self,
@@ -73,7 +77,7 @@ class AnchorGenerator(torch.nn.Module):
                     x0, y0, x1, y1 = -w / 2.0, -h / 2.0, w / 2.0, h / 2.0
                     pyramid_anchors.append([x0, y0, x1, y1])
 
-            anchors.append(torch.Tensor(pyramid_anchors))
+            anchors.append(torch.Tensor(pyramid_anchors).float())
 
         return anchors
 
@@ -82,9 +86,7 @@ class AnchorGenerator(torch.nn.Module):
         for size, stride, base_anchors in zip(
             grid_sizes, self.strides, self.anchors_per_cell
         ):
-            shift_x, shift_y = self._create_grid_offsets(
-                size, stride, 0.5, base_anchors.device
-            )
+            shift_x, shift_y = self._create_grid_offsets(size, stride, 0.5, self.cuda)
             shifts = torch.stack((shift_x, shift_y, shift_x, shift_y), dim=1)
 
             anchors.append(
@@ -94,7 +96,7 @@ class AnchorGenerator(torch.nn.Module):
         return anchors
 
     def _create_grid_offsets(
-        self, size: List[int], stride: int, offset: float, device: torch.device
+        self, size: List[int], stride: int, offset: float, cuda: bool
     ):
         grid_height, grid_width = size
         shifts_x = torch.arange(
@@ -102,14 +104,14 @@ class AnchorGenerator(torch.nn.Module):
             grid_width * stride,
             step=stride,
             dtype=torch.float32,
-            device=device,
+            device="cpu" if cuda else "cpu",
         )
         shifts_y = torch.arange(
             offset * stride,
             grid_height * stride,
             step=stride,
             dtype=torch.float32,
-            device=device,
+            device="cpu" if cuda else "cpu",
         )
 
         shift_y, shift_x = torch.meshgrid(shifts_y, shifts_x)

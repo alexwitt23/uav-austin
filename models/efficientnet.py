@@ -16,7 +16,7 @@ from models import classifier
 
 _MODEL_SCALES = {
     # (width_coefficient, depth_coefficient, resolution, dropout_rate)
-    "efficientnet-b0": (1.0, 1.0, 224, 0.0),
+    "efficientnet-b0": (1.0, 1.0, 224, 0.2),
     "efficientnet-b1": (1.0, 1.1, 240, 0.2),
     "efficientnet-b2": (1.1, 1.2, 260, 0.3),
     "efficientnet-b3": (1.2, 1.4, 300, 0.3),
@@ -149,7 +149,7 @@ class PointwiseConv(torch.nn.Module):
                 kernel_size=1,
                 bias=False,
             ),
-            torch.nn.BatchNorm2d(num_features=out_channels),
+            torch.nn.BatchNorm2d(num_features=out_channels, momentum=0.01, eps=1e-3),
             Swish(),
         )
         fan_out = int(in_channels * out_channels)
@@ -189,18 +189,9 @@ class DepthwiseConv(torch.nn.Module):
                 groups=channels,
                 bias=True,
             ),
-            torch.nn.BatchNorm2d(num_features=channels),
+            torch.nn.BatchNorm2d(num_features=channels, momentum=0.01, eps=1e-3),
             Swish(),
         )
-<<<<<<< HEAD
-=======
-        fan_out = int(kernel_size * channels ** 2)
-        for layer in self.layers.modules():
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(
-                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
-                )
->>>>>>> c8b44f460475f458e0a71453113a62a7f22c9133
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)
@@ -235,15 +226,6 @@ class SqueezeExcitation(torch.nn.Module):
             ),
             torch.nn.Sigmoid(),
         )
-<<<<<<< HEAD
-=======
-        fan_out = int(expanded_channels ** 2)
-        for layer in self.layers.modules():
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(
-                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
-                )
->>>>>>> c8b44f460475f458e0a71453113a62a7f22c9133
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         """ Apply the squeezing and excitation, then elementwise multiplacation of 
@@ -277,8 +259,15 @@ class MBConvBlock(torch.nn.Module):
         # add expansion layer if expansion required
         if expand_ratio != 1:
             self.layers += [
-                PointwiseConv(in_channels=in_channels, out_channels=expanded_channels),
-                torch.nn.BatchNorm2d(num_features=expanded_channels),
+                torch.nn.Conv2d(
+                    in_channels=in_channels,
+                    out_channels=expanded_channels,
+                    kernel_size=1,
+                    bias=True,
+                ),
+                torch.nn.BatchNorm2d(
+                    num_features=expanded_channels, momentum=0.01, eps=1e-3
+                ),
                 Swish(),
             ]
         self.layers += [
@@ -297,20 +286,10 @@ class MBConvBlock(torch.nn.Module):
                 bias=False,
             ),
             torch.nn.BatchNorm2d(num_features=out_channels),
-            torch.nn.Dropout(p=dropout),
+            torch.nn.Dropout(p=dropout, inplace=True),
         ]
         self.layers = torch.nn.Sequential(*self.layers)
 
-<<<<<<< HEAD
-=======
-        fan_out = int(expanded_channels * out_channels)
-        for layer in self.layers.modules():
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(
-                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
-                )
-
->>>>>>> c8b44f460475f458e0a71453113a62a7f22c9133
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         x = self.layers(x)
         if self.skip and self.in_channels == self.out_channels:
@@ -342,7 +321,7 @@ class EfficientNet(torch.nn.Module):
                     stride=2,
                     bias=False,
                 ),
-                torch.nn.BatchNorm2d(out_channels),
+                torch.nn.BatchNorm2d(out_channels, momentum=0.01, eps=1e-3),
                 Swish(),
             )
         ]
@@ -393,10 +372,15 @@ class EfficientNet(torch.nn.Module):
 
         out_channels = round_filters(1280, scale=scale_params[0])
         self.pre_classification = torch.nn.Sequential(
-            PointwiseConv(in_channels=in_channels, out_channels=out_channels),
-            torch.nn.BatchNorm2d(num_features=out_channels),
+            torch.nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                bias=True,
+            ),
+            torch.nn.BatchNorm2d(num_features=out_channels, momentum=0.01, eps=1e-3),
             torch.nn.AdaptiveAvgPool2d(1),
-            torch.nn.Dropout(p=scale_params[-1]),
+            torch.nn.Dropout(p=scale_params[-1], inplace=True),
         )
 
         self.model_head = torch.nn.Linear(
@@ -414,7 +398,7 @@ class EfficientNet(torch.nn.Module):
         features = self.pre_classification(self.model_layers(x))
         features = features.view(features.shape[0], -1)
         return self.model_head(features)
-    
+
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
         """ Get the outputs at each level. """
         x1 = self.feature_levels[0](x)

@@ -21,7 +21,7 @@ class Classifier(torch.nn.Module):
         version: str = None,
         backbone: str = None,
         use_cuda: bool = torch.cuda.is_available(),
-        half_precision: bool = False
+        half_precision: bool = False,
     ):
         super().__init__()
         self.num_classes = num_classes
@@ -47,12 +47,10 @@ class Classifier(torch.nn.Module):
             self.model = self._load_backbone(backbone)
 
         self.model.eval()
-        
+
         if self.use_cuda and self.half_precision:
             self.model.cuda()
             self.model.half()
-            
-
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         # If using cuda and not training, assume inference.
@@ -78,6 +76,7 @@ class Classifier(torch.nn.Module):
         for each image. """
         _, predicted = torch.max(self.model(x).data, 1)
         return predicted
+
 
 def init(module: torch.nn.Module) -> None:
 

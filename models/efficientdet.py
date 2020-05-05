@@ -33,6 +33,7 @@ class EfficientDet(torch.nn.Module):
         backbone: str = "efficientdet-b0",
         anchors_per_cell: int = 4,
         levels: List[int] = [3, 4, 5, 6, 7],
+        use_cuda: bool = False,
     ) -> None:
         """ 
         Args:
@@ -60,8 +61,8 @@ class EfficientDet(torch.nn.Module):
             img_width=params[0],
             pyramid_levels=levels,
             anchor_scales=[1.0, 1.2599, 1.5874],
+            use_cuda=use_cuda,
         )
-
         # Create the resnet head.
         self.retinanet_head = retinanet_head.RetinaNetHead(
             num_classes,
@@ -69,6 +70,14 @@ class EfficientDet(torch.nn.Module):
             anchors_per_cell=self.anchors.num_anchors_per_cell,
             num_convolutions=params[4],
         )
+
+        if use_cuda:
+            self.anchors.all_anchors = self.anchors.all_anchors.cuda()
+            self.anchors.anchors_over_all_feature_maps = [
+                anchors.cuda()
+                for anchors in self.anchors.anchors_over_all_feature_maps
+            ]
+
         self.postprocess = postprocess.PostProcessor(
             num_classes=num_classes,
             anchors=self.anchors,
@@ -83,6 +92,4 @@ class EfficientDet(torch.nn.Module):
         if self.training:
             return classifications, regressions
         else:
-            classifications = [level.cpu() for level in classifications]
-            regressions = [level.cpu() for level in regressions]
             return self.postprocess(classifications, regressions)

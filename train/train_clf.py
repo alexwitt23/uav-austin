@@ -80,7 +80,9 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
         # Call evaluation function
         clf_model.eval()
-        eval_acc = eval(clf_model, eval_loader, use_cuda, save_best, highest_score, save_dir)
+        eval_acc = eval(
+            clf_model, eval_loader, use_cuda, save_best, highest_score, save_dir
+        )
         highest_score = eval_acc if eval_acc > highest_score else highest_score
         clf_model.train()
 
@@ -121,10 +123,8 @@ def eval(
         previous_best = save_dir / "classifier.pt"
         if previous_best.is_file():
             previous_best.unlink()
-            
-        model_saver.save_model(
-            clf_model, save_dir / "classifier.pt"
-        )
+
+        model_saver.save_model(clf_model, save_dir / "classifier.pt")
 
     return accuracy
 
@@ -207,6 +207,6 @@ if __name__ == "__main__":
 
     # Create tar archive if best weights are saved.
     if save_best:
-        with tarfile.open(save_dir / "clf-model.tar.gz", mode="w:gz") as tar:
+        with tarfile.open(save_dir / "classifier.tar.gz", mode="w:gz") as tar:
             for model_file in save_dir.glob("*"):
                 tar.add(model_file, arcname=model_file.name)

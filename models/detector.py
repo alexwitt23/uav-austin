@@ -17,16 +17,18 @@ class Detector(torch.nn.Module):
         self,
         img_width: int,
         img_height: int,
-        num_classes: int = 2,
+        num_classes: int,
         version: str = None,
         backbone: str = None,
         use_cuda: bool = torch.cuda.is_available(),
-        half_precision: bool = None,
+        half_precision: bool = False,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
         self.img_width = img_width
         self.img_height = img_height
+        self.use_cuda = use_cuda
+        self.half_precision = half_precision
         if backbone is None and version is None:
             raise ValueError("Must supply either model version or backbone to load")
 
@@ -47,7 +49,7 @@ class Detector(torch.nn.Module):
             self.model = self._load_backbone(backbone)
 
         self.model.eval()
-        
+
         if self.use_cuda and self.half_precision:
             self.model.cuda()
             self.model.half()
@@ -59,8 +61,7 @@ class Detector(torch.nn.Module):
         """ Load the supplied backbone. """
         if backbone == "efficientdet-b0":
             model = efficientdet.EfficientDet(
-                backbone=backbone, 
-                num_classes=self.num_classes
+                backbone=backbone, num_classes=self.num_classes, use_cuda=self.use_cuda
             )
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
@@ -70,5 +71,4 @@ class Detector(torch.nn.Module):
     def detect(self, x: torch.Tensor) -> torch.Tensor:
         """ Take in an image batch and return the class 
         for each image. """
-        _, predicted = torch.max(out.data, 1)
-        return predicted
+        return self.model(x)

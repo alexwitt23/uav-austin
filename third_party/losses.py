@@ -238,6 +238,7 @@ def compute_losses(
     cls_per_level: List[torch.Tensor],
     reg_per_level: List[torch.Tensor],
     num_classes: int,
+    use_cuda: bool = False,
 ) -> Dict[str, float]:
     """
     Args:
@@ -260,8 +261,9 @@ def compute_losses(
     gt_classes, gt_anchors_deltas = get_ground_truth(
         original_anchors, gt_boxes, gt_classes
     )
-    gt_classes = gt_classes.flatten().long().cuda()
-    gt_anchors_deltas = gt_anchors_deltas.view(-1, 4).cuda()
+    if use_cuda:
+        gt_classes = gt_classes.flatten().long().cuda()
+        gt_anchors_deltas = gt_anchors_deltas.view(-1, 4).cuda()
     pred_anchor_deltas = pred_anchor_deltas.view(-1, 4)
     pred_class_logits = pred_class_logits.view(-1, num_classes)
 
@@ -325,13 +327,11 @@ def get_ground_truth(
     gt_anchors_deltas = []
     # Loop over the ground truth boxes and labels for each image in the batch.
     for gt_targets, gt_boxes in zip(gt_classes, gt_boxes_all):
-        gt_targets = gt_targets.cpu()
-        gt_boxes = gt_boxes.cpu()
+
         # See if there are any labels for this image
         if len(gt_boxes) > 0:
             # Calculate a IoU matrix which compares each original anchor to each ground truth
             # box. This will allow us to see which predictions match which anchors.
-
             match_quality_matrix = boxes.box_iou(gt_boxes, original_anchors)
 
             gt_matched_idxs, anchor_labels = matcher(match_quality_matrix)

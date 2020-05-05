@@ -5,9 +5,12 @@ import argparse
 import pathlib
 from typing import Tuple, List
 import yaml
+import tarfile
 import tempfile
+import datetime
 import json
 import time
+import shutil
 
 from pycocotools import coco, cocoeval
 import torch
@@ -21,6 +24,7 @@ from third_party import losses
 
 _LOG_INTERVAL = 10
 _IMG_WIDTH, _IMG_HEIGHT = generate_config.DETECTOR_SIZE
+_SAVE_DIR = pathlib.Path("~/runs/uav-det").expanduser()
 
 
 def detections_to_dict(bboxes: list, image_paths: torch.Tensor) -> dict:
@@ -41,7 +45,7 @@ def detections_to_dict(bboxes: list, image_paths: torch.Tensor) -> dict:
     return detections
 
 
-def train(model_cfg: dict, train_cfg: dict,) -> None:
+def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path=None) -> None:
 
     # TODO(alex) these paths should be in the generate config
     train_batch_size = train_cfg.get("train_batch_size", 8)
@@ -68,8 +72,8 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
     # We don't need the backbone to make classifications.
     det_model = detector.Detector(
         backbone=model_cfg.get("backbone", None),
-        img_width=generate_config.PRECLF_SIZE[0],
-        img_height=generate_config.PRECLF_SIZE[0],
+        img_width=generate_config.DETECTOR_SIZE[0],
+        img_height=generate_config.DETECTOR_SIZE[0],
         num_classes=37,
     )
     det_model.model.backbone.delete_classification_head()
@@ -77,8 +81,8 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
     print(f"Model architecture: \n {det_model}")
 
     if use_cuda:
-        det_model.cuda()
         torch.backends.cudnn.benchmark = True
+        det_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], det_model)
 
@@ -107,6 +111,8 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
 
             # Forward pass through detector
             cls_per_level, reg_per_level = det_model(images)
+            # cls_per_level = [level.cpu() for level in cls_per_level]
+            # reg_per_level = [level.cpu() for level in reg_per_level]
             # Compute the losses
             cls_loss, reg_loss = losses.compute_losses(
                 det_model.model.anchors.all_anchors,
@@ -115,6 +121,7 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
                 cls_per_level=cls_per_level,
                 reg_per_level=reg_per_level,
                 num_classes=37,
+                use_cuda=use_cuda,
             )
             total_loss = cls_loss + reg_loss
             clf_losses.append(cls_loss)
@@ -135,7 +142,7 @@ def train(model_cfg: dict, train_cfg: dict,) -> None:
 
         # Call evaluation function
         det_model.eval()
-        eval_acc = eval(det_model, eval_loader, use_cuda, save_best, highest_score)
+        eval_acc = eval(det_model, eval_loader, use_cuda, save_best, highest_score, save_dir)
         highest_score = eval_acc if eval_acc > highest_score else eval_acc
         det_model.train()
 
@@ -151,6 +158,7 @@ def eval(
     use_cuda: bool = False,
     save_best: bool = False,
     previous_best: float = None,
+    save_dir: pathlib.Path = None,
 ) -> float:
     """ Evalulate the model against the evaulation set. Save the best 
     weights if specified. Use the pycocotools package for metrics. """
@@ -180,7 +188,7 @@ def eval(
 
     if save_best:
         model_saver.save_model(
-            det_model, pathlib.Path(f"~/runs/uav-det/det.pt").expanduser()
+            det_model, save_dir / "detector.pt"
         )
 
     return 0.000
@@ -199,8 +207,8 @@ def create_data_loader(
         data_dir,
         metadata_path=metadata_path,
         img_ext=generate_config.IMAGE_EXT,
-        img_width=_IMG_WIDTH,
-        img_height=_IMG_HEIGHT,
+        img_width=512,
+        img_height=512,
     )
     loader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, pin_memory=True, shuffle=True
@@ -255,8 +263,20 @@ if __name__ == "__main__":
 
     # Load the model config
     config = yaml.safe_load(config_path.read_text())
-
     model_cfg = config["model"]
     train_cfg = config["training"]
 
-    train(model_cfg, train_cfg)
+    save_best = train_cfg.get("save_best", False)
+    save_dir = None
+    if save_best:
+        save_dir = _SAVE_DIR / (datetime.datetime.now().isoformat().split(".")[0])
+        save_dir.mkdir(exist_ok=True, parents=True)
+        shutil.copy(config_path, save_dir / "config.yaml")
+
+    train(model_cfg, train_cfg, save_dir)
+
+    # Create tar archive if best weights are saved.
+    if save_best:
+        with tarfile.open(save_dir/ "detector.tar.gz", mode="w:gz") as tar:
+            for model_file in save_dir.glob("*"):
+                tar.add(model_file, arcname=model_file.name)

@@ -23,6 +23,7 @@ class RetinaNetHead(torch.nn.Module):
         classification_subnet = torch.nn.ModuleList([])
         for _ in range(num_convolutions):
             classification_subnet += [
+                # Depthwise
                 torch.nn.Conv2d(
                     in_channels=in_channels,
                     out_channels=in_channels,
@@ -30,6 +31,15 @@ class RetinaNetHead(torch.nn.Module):
                     stride=1,
                     padding=1,
                     groups=in_channels,
+                    bias=False,
+                ),
+                # Pointwise linear
+                torch.nn.Conv2d(
+                    in_channels=in_channels,
+                    out_channels=in_channels,
+                    kernel_size=1,
+                    stride=1,
+                    bias=True,
                 ),
                 torch.nn.ReLU(inplace=True),
             ]
@@ -40,42 +50,46 @@ class RetinaNetHead(torch.nn.Module):
         # expands the input into (anchors_num * num_classes) filters because it
         # predicts 'the probability of object presence at each spatial postion
         # for each of the A anchors'
-        classification_subnet.append(
+        classification_subnet += [
+            torch.nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=in_channels,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
             torch.nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=num_classes * anchors_per_cell,
-                kernel_size=3,
+                kernel_size=1,
                 stride=1,
-                padding=1,
-            )
-        )
+                bias=True,
+            ),
+        ]
 
         # The regerssion expands the input into (4 * A) where 4 represents
         # the position of the regeressed anchor.
-        regression_subnet.append(
+        regression_subnet += [
             torch.nn.Conv2d(
                 in_channels=in_channels,
-                out_channels=anchors_per_cell * 4,
+                out_channels=in_channels,
                 kernel_size=3,
                 stride=1,
                 padding=1,
-            )
-        )
+                bias=False,
+            ),
+            torch.nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=anchors_per_cell * 4,
+                kernel_size=1,
+                stride=1,
+                bias=True,
+            ),
+        ]
 
         self.regression_subnet = torch.nn.Sequential(*regression_subnet)
         self.classification_subnet = torch.nn.Sequential(*classification_subnet)
-        bias_value = -np.log((1 - 0.01) / 0.01)
-        for block in self.regression_subnet.modules():
-            for layer in block.modules():
-                if isinstance(layer, torch.nn.Conv2d):
-                    torch.nn.init.constant_(self.regression_subnet[-1].bias, bias_value)
-
-        for block in self.classification_subnet.modules():
-            for layer in block.modules():
-                if isinstance(layer, torch.nn.Conv2d):
-                    torch.nn.init.constant_(
-                        self.classification_subnet[-1].bias, bias_value
-                    )
 
     def __call__(
         self, feature_maps: List[torch.Tensor]
@@ -83,7 +97,8 @@ class RetinaNetHead(torch.nn.Module):
         """ Applies the regression and classification subnets to each of the 
         incoming feature maps. """
 
-        classifications, bbox_regressions = [], []
+        classifications: List[torch.Tensor] = []
+        bbox_regressions: List[torch.Tensor] = []
         for map_ in feature_maps:
             bbox_regressions.append(self.regression_subnet(map_))
             classifications.append(self.classification_subnet(map_))

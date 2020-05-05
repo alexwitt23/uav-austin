@@ -324,12 +324,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     clf_model = classifier.Classifier(
-        version=args.clf_version, 
+        version=args.clf_version,
         img_width=generate_config.PRECLF_SIZE[0],
-        img_height=generate_config.PRECLF_SIZE[1]
+        img_height=generate_config.PRECLF_SIZE[1],
     )
     det_model = detector.Detector(
         version=args.det_version,
         img_width=generate_config.DETECTOR_SIZE[0],
-        img_height=generate_config.DETECTOR_SIZE[1]       
+        img_height=generate_config.DETECTOR_SIZE[1],
     )
