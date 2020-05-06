@@ -15,10 +15,6 @@ def classification_augmentations(height: int, width: int) -> albumentations.Comp
         [
             albumentations.Resize(height=height, width=width),
             albumentations.Flip(),
-            albumentations.GaussNoise(),
-            albumentations.RandomBrightnessContrast(),
-            albumentations.RandomGamma(),
-            albumentations.Normalize(),
         ]
     )
 
@@ -65,7 +61,7 @@ class DetDataset(torch.utils.data.Dataset):
         img_ext: str = ".png",
         img_width: int = 512,
         img_height: int = 512,
-    ):
+    ) -> None:
         super().__init__()
         self.meta_data = json.loads(metadata_path.read_text())
         self.images = list(data_dir.glob(f"*{img_ext}"))

@@ -29,6 +29,7 @@ class EfficientDet(torch.nn.Module):
         anchors_per_cell: int = 4,
         levels: List[int] = [3, 4, 5, 6, 7],
         use_cuda: bool = False,
+        num_levels_extracted: int = 3,
     ) -> None:
         """ 
         Args:
@@ -44,8 +45,7 @@ class EfficientDet(torch.nn.Module):
         # self.backbone = resnet.resnet34(pretrained=True, progress=True)
 
         # Get the output feature for the pyramids we need
-        features = self.backbone.get_pyramid_channels()
-        features = features[-self.num_pyramids :]
+        features = self.backbone.get_pyramid_channels()[-num_levels_extracted:]
 
         params = _MODEL_SCALES["efficientdet-b0"]
         # Create the BiFPN with the supplied parameter options.
@@ -84,7 +84,7 @@ class EfficientDet(torch.nn.Module):
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        levels = self.backbone.forward_pyramids(x)[-self.num_pyramids :]
+        levels = self.backbone.forward_pyramids(x)[-3:]
         levels = self.fpn(feature_maps=levels)
         classifications, regressions = self.retinanet_head(levels)
 

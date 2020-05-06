@@ -78,7 +78,7 @@ _DEFAULT_MB_BLOCKS_ARGS = [
         "filters_out": 112,
         "expand_ratio": 6,
         "id_skip": True,
-        "strides": 2,
+        "strides": 1,
         "se_ratio": 0.25,
     },
     {
@@ -98,7 +98,7 @@ _DEFAULT_MB_BLOCKS_ARGS = [
         "filters_out": 320,
         "expand_ratio": 6,
         "id_skip": True,
-        "strides": 2,
+        "strides": 1,
         "se_ratio": 0.25,
     },
 ]
@@ -114,13 +114,12 @@ class Swish(torch.nn.Module):
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.relu(x)
 
-
-# TODO(alex) this is confusing. Copied right from original implemenation.
-# This has to do with keeping the scaling consistent, but I don't understand
-# exactly whats going on.
 def round_filters(filters: int, scale: float, min_depth: int = 8) -> int:
-    """ Determine the number of filters based on the depth multiplier. """
-
+    """ This function is taken from the original tf repo.
+    It ensures that all layers have a channel number that is divisible by 8
+    It can be seen here:
+    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
+    """
     filters *= scale
     new_filters = max(min_depth, int(filters + min_depth / 2) // min_depth * min_depth)
     # Make sure that round down does not go down by more than 10%.
@@ -152,12 +151,6 @@ class PointwiseConv(torch.nn.Module):
             torch.nn.BatchNorm2d(num_features=out_channels, momentum=0.01, eps=1e-3),
             Swish(),
         )
-        fan_out = int(in_channels * out_channels)
-        for layer in self.layers.modules():
-            if isinstance(layer, torch.nn.Conv2d):
-                torch.nn.init.normal_(
-                    layer.weight, mean=0.0, std=np.sqrt(2.0 / fan_out)
-                )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)
@@ -291,8 +284,8 @@ class MBConvBlock(torch.nn.Module):
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         x = self.layers(x)
-        if self.skip and self.in_channels == self.out_channels:
-            x += x
+        #if self.skip and self.in_channels == self.out_channels:
+        #    x += x
         return x
 
 
@@ -309,7 +302,6 @@ class EfficientNet(torch.nn.Module):
         scale_params = _MODEL_SCALES[backbone]
         # Add the first layer, a simple 3x3 filter conv layer.
         out_channels = round_filters(32, scale=scale_params[0])
-        self.features_list = [out_channels]
         self.model_layers = [
             torch.nn.Sequential(
                 torch.nn.ZeroPad2d([0, 1, 0, 1]),
@@ -324,7 +316,6 @@ class EfficientNet(torch.nn.Module):
                 Swish(),
             )
         ]
-
         # Now loop over the MBConv layer params
         for mb_params in _DEFAULT_MB_BLOCKS_ARGS:
             out_channels = round_filters(
@@ -352,7 +343,6 @@ class EfficientNet(torch.nn.Module):
                 ]
             )
             in_channels = out_channels
-            self.features_list.append(out_channels)
             for _ in range(repeats - 1):
                 mb_block.append(
                     MBConvBlock(
@@ -378,42 +368,36 @@ class EfficientNet(torch.nn.Module):
                 bias=True,
             ),
             torch.nn.BatchNorm2d(num_features=out_channels, momentum=0.01, eps=1e-3),
-            torch.nn.AdaptiveAvgPool2d(1),
+            torch.nn.AdaptiveAvgPool2d((1, 1)),
             torch.nn.Dropout(p=scale_params[-1], inplace=True),
         )
-        bias_value = -np.log((1 - 0.01) / 0.01)
-        torch.nn.init.constant_(self.pre_classification[0].bias, bias_value)
 
         self.model_head = torch.nn.Linear(
-            in_features=out_channels, out_features=num_classes
+            in_features=out_channels, out_features=num_classes,
         )
 
-        # self.apply(init)
+        #self.apply(init)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
 
         features = self.pre_classification(self.model_layers(x))
-        features = features.view(features.shape[0], -1)
+        features =  torch.flatten(features, 1)
         return self.model_head(features)
 
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
         """ Get the outputs at each level. """
-        x1 = self.model_layers[0](x)
-        x2 = self.model_layers[1](x1)
-        x3 = self.model_layers[2](x2)
-        x4 = self.model_layers[3](x3)
-        x5 = self.model_layers[4](x4)
-        x6 = self.model_layers[5](x5)
-        x7 = self.model_layers[6](x6)
-        x8 = self.model_layers[7](x7)
-
-        return [x1, x2, x3, x4, x5, x6, x7, x8]
+        x1 = self.model_layers[0:2](x)
+        x2 = self.model_layers[2](x1)
+        x3 = self.model_layers[3](x2)
+        x4 = self.model_layers[4:6](x3)
+        x5 = self.model_layers[6:7](x4)
+        return [x1, x2, x3, x4, x5]
 
     def get_pyramid_channels(self) -> List[int]:
         """ Return the number of channels from each pyramid level. We only care 
         about the output channels of each MBConv block. """
-
-        return self.features_list
+        #TODO(alex) un-hardcode
+        return [40, 112, 192]
 
     def delete_classification_head(self) -> None:
         del self.pre_classification
@@ -428,7 +412,4 @@ def init(m: torch.nn.Module):
             torch.nn.init.zeros_(m.bias)
     elif isinstance(m, torch.nn.BatchNorm2d):
         torch.nn.init.ones_(m.weight)
-        torch.nn.init.zeros_(m.bias)
-    elif isinstance(m, torch.nn.Linear):
-        torch.nn.init.normal_(m.weight, 0, 0.01)
         torch.nn.init.zeros_(m.bias)

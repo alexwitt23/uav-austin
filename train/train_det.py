@@ -78,7 +78,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     )
     det_model.model.backbone.delete_classification_head()
     det_model.train()
-    print(f"Model architecture: \n {det_model}")
+    # sprint(f"Model architecture: \n {det_model}")
 
     if use_cuda:
         torch.backends.cudnn.benchmark = True

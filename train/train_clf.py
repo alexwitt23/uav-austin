@@ -111,7 +111,9 @@ def eval(
                 labels = labels.cuda()
 
             out = clf_model(data)
+            print(out)
             _, predicted = torch.max(out.data, 1)
+
             total_num += labels.size(0)
             num_correct += (predicted == labels).sum().item()
 
