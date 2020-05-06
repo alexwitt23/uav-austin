@@ -146,7 +146,7 @@ class PostProcessor:
         boxes_all = []
         scores_all = []
         class_idxs_all = []
-        
+
         # Iterate over every feature level
         for box_cls_i, box_reg_i, anchors_i in zip(
             box_cls, box_delta, self.anchors.anchors_over_all_feature_maps

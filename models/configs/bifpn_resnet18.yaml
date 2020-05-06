@@ -1,15 +1,16 @@
 model:
-  type: "classifier"
-  backbone: "efficientnet-b0"
+  type: "detection"
+  backbone: "resnet34"
 training:
   optimizer: 
     type: "SGD"
     lr: 1e-2
     momentum: 0.9
     weight_decay: 1e-5
-  epochs: 30
-  gpu: true
-  batch_size: 85
+  epochs: 20
+  gpu: True
+  train_batch_size: 5
+  eval_batch_size: 64
   save_best: true
   
   

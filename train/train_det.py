@@ -45,7 +45,7 @@ def detections_to_dict(bboxes: list, image_paths: torch.Tensor) -> dict:
     return detections
 
 
-def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path=None) -> None:
+def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> None:
 
     # TODO(alex) these paths should be in the generate config
     train_batch_size = train_cfg.get("train_batch_size", 8)
@@ -111,8 +111,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path=None) -> None
 
             # Forward pass through detector
             cls_per_level, reg_per_level = det_model(images)
-            # cls_per_level = [level.cpu() for level in cls_per_level]
-            # reg_per_level = [level.cpu() for level in reg_per_level]
+
             # Compute the losses
             cls_loss, reg_loss = losses.compute_losses(
                 det_model.model.anchors.all_anchors,
@@ -142,7 +141,9 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path=None) -> None
 
         # Call evaluation function
         det_model.eval()
-        eval_acc = eval(det_model, eval_loader, use_cuda, save_best, highest_score, save_dir)
+        eval_acc = eval(
+            det_model, eval_loader, use_cuda, save_best, highest_score, save_dir
+        )
         highest_score = eval_acc if eval_acc > highest_score else eval_acc
         det_model.train()
 
@@ -163,7 +164,7 @@ def eval(
     """ Evalulate the model against the evaulation set. Save the best 
     weights if specified. Use the pycocotools package for metrics. """
     start = time.perf_counter()
-    total_num, num_correct = 0, 0
+    total_num = 0
     with torch.no_grad():
         detections_dict: List[dict] = []
         for images, _, _, image_ids in eval_loader:
@@ -187,11 +188,9 @@ def eval(
             cocoEval.summarize()
 
     if save_best:
-        model_saver.save_model(
-            det_model, save_dir / "detector.pt"
-        )
+        model_saver.save_model(det_model, save_dir / "detector.pt")
 
-    return 0.000
+    return 0.0
 
 
 def create_data_loader(
@@ -277,6 +276,6 @@ if __name__ == "__main__":
 
     # Create tar archive if best weights are saved.
     if save_best:
-        with tarfile.open(save_dir/ "detector.tar.gz", mode="w:gz") as tar:
+        with tarfile.open(save_dir / "detector.tar.gz", mode="w:gz") as tar:
             for model_file in save_dir.glob("*"):
                 tar.add(model_file, arcname=model_file.name)

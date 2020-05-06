@@ -3,12 +3,7 @@ from typing import List, Tuple
 import torch
 
 from models import efficientnet, BiFPN
-from third_party import (
-    retinanet_head,
-    postprocess,
-    regression,
-    anchors,
-)
+from third_party import retinanet_head, postprocess, regression, anchors, resnet
 
 _MODEL_SCALES = {
     # (resolution, backbone, bifpn channels, num bifpn layers, head layers)
@@ -41,20 +36,25 @@ class EfficientDet(torch.nn.Module):
         """
         super().__init__()
         self.num_pyramids = len(levels)
-        assert backbone in _MODEL_SCALES, backbone
+        # assert backbone in _MODEL_SCALES, backbone
 
         self.backbone = efficientnet.EfficientNet(
             _MODEL_SCALES[backbone][1], num_classes=num_classes
         )
+        # self.backbone = resnet.resnet34(pretrained=True, progress=True)
 
         # Get the output feature for the pyramids we need
         features = self.backbone.get_pyramid_channels()
         features = features[-self.num_pyramids :]
 
-        params = _MODEL_SCALES[backbone]
-        # Creat the BiFPN with the supplied parameter options.
+        params = _MODEL_SCALES["efficientdet-b0"]
+        # Create the BiFPN with the supplied parameter options.
         self.fpn = BiFPN.BiFPN(
-            in_channels=features, out_channels=params[2], num_bifpns=params[3]
+            in_channels=features,
+            out_channels=params[2],
+            num_bifpns=params[3],
+            num_levels_in=3,
+            bifpn_height=5,
         )
         self.anchors = anchors.AnchorGenerator(
             img_height=params[0],
@@ -74,8 +74,7 @@ class EfficientDet(torch.nn.Module):
         if use_cuda:
             self.anchors.all_anchors = self.anchors.all_anchors.cuda()
             self.anchors.anchors_over_all_feature_maps = [
-                anchors.cuda()
-                for anchors in self.anchors.anchors_over_all_feature_maps
+                anchors.cuda() for anchors in self.anchors.anchors_over_all_feature_maps
             ]
 
         self.postprocess = postprocess.PostProcessor(

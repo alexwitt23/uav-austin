@@ -37,21 +37,20 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         img_height=generate_config.PRECLF_SIZE[0],
         num_classes=2,
     )
-    clf_model.apply(classifier.init)
     if use_cuda:
         torch.backends.cudnn.benchmark = True
         clf_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], clf_model)
 
+    epochs = train_cfg.get("epochs", 0)
+    assert epochs > 0, "Please supply epoch > 0"
+
     # TODO(alex) make this configurable
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, len(train_loader), 1e-9
     )
     loss_fn = torch.nn.CrossEntropyLoss()
-
-    epochs = train_cfg.get("epochs", 0)
-    assert epochs > 0, "Please supply epoch > 0"
 
     for epoch in range(epochs):
 
@@ -74,8 +73,9 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
+                lr = optimizer.param_groups[0]["lr"]
                 print(
-                    f"Epoch: {epoch} step {idx}, loss {sum(all_losses) / len(all_losses):.5}"
+                    f"Epoch: {epoch} step {idx}, loss {sum(all_losses) / len(all_losses):.5}. lr: {lr}"
                 )
 
         # Call evaluation function
@@ -210,3 +210,4 @@ if __name__ == "__main__":
         with tarfile.open(save_dir / "classifier.tar.gz", mode="w:gz") as tar:
             for model_file in save_dir.glob("*"):
                 tar.add(model_file, arcname=model_file.name)
+        print(f"Saved model to {save_dir / 'classifier.tar.gz'}")

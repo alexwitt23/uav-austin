@@ -8,16 +8,30 @@ class BiFPN(torch.nn.Module):
     """ Implementation of thee BiFPN originally proposed in 
     https://arxiv.org/pdf/1911.09070.pdf. """
 
-    def __init__(self, in_channels: List[int], out_channels: int, num_bifpns: int):
+    def __init__(
+        self,
+        in_channels: List[int],
+        out_channels: int,
+        num_bifpns: int,
+        num_levels_in: int,
+        bifpn_height: int = 5,
+    ) -> None:
         """ 
         Args:
             in_channels: A list of the incomming number of filters
-            for each pyramid level.
+                for each pyramid level.
             out_channels: The number of features outputted from the
-            latteral convolutions. 
+                latteral convolutions. 
+            num_bifpns: The number of BiFPN layers in the model.
+                start_level: Which pyramid level to start at.
+            num_levels_in: The number of feature maps incoming.
+            bifpn_height: The number of feature maps to send in to the
+            bifpn. NOTE might not be equal to num_levels_in. 
         """
         super().__init__()
-
+        self.num_levels_in = num_levels_in
+        self.bifpn_height = bifpn_height
+        self.in_channels = in_channels
         # Construct the lateral convs. These take the outputs from the
         # specified pyramid levels and expand to a common number of
         # channels. NOTE no activations.
@@ -28,16 +42,45 @@ class BiFPN(torch.nn.Module):
                 kernel_size=1,
                 stride=1,
             )
-            for num_channels in in_channels
+            for num_channels in in_channels[-num_levels_in:]
         ]
         self.lateral_convs = torch.nn.Sequential(*self.lateral_convs)
-        # Construct the BiFPN layers.
-        self.bifp_layers = torch.nn.ModuleList([])
-        for _ in range(num_bifpns):
-            self.bifp_layers.append(
-                BiFPNBlock(channels=out_channels, num_levels=len(in_channels))
-            )
+
+        # Construct the BiFPN layers. If we are to take fewer feature pyramids
+        # than the list given, we must interpolate the others. This occurs when
+        # the supplied feature list might not align with anchor grid generated
+        # since the anchor grid assumes that each level is 1 / 2 the W, H of
+        # the previous level.
+        self.bifp_layers = [
+            BiFPNBlock(channels=out_channels, num_levels=len(in_channels))
+            for _ in range(num_bifpns)
+        ]
         self.bifp_layers = torch.nn.Sequential(*self.bifp_layers)
+
+        # If BiFPN needs more levels than what is being put in, downsample the
+        # incoming lebv.
+        if self.bifpn_height != self.num_levels_in:
+            self.downsample_convs = []
+            for _ in range(self.bifpn_height - num_levels_in):
+                self.downsample_convs.append(
+                    torch.nn.Sequential(
+                        torch.nn.Conv2d(
+                            in_channels=in_channels[-1],
+                            out_channels=in_channels[-1],
+                            kernel_size=3,
+                            padding=1,
+                            groups=in_channels[-1],
+                            bias=False,
+                        ),
+                        torch.nn.Conv2d(
+                            in_channels=in_channels[-1],
+                            out_channels=out_channels,
+                            kernel_size=1,
+                            bias=True,
+                        ),
+                    )
+                )
+                self.in_channels.append(in_channels)
 
     def __call__(self, feature_maps: List[torch.Tensor]):
         """ First apply the lateral convolutions to size all the incoming 
@@ -46,6 +89,11 @@ class BiFPN(torch.nn.Module):
         Args:
             feature_maps: Feature maps in sorted order of layer. 
         """
+        # Make sure fpn gets the anticipated number of levels.
+        assert len(feature_maps) == self.num_levels_in, len(feature_maps)
+
+        if self.downsample_convs:
+            feature_maps.extend([zip(self.lateral_convs, feature_maps)])
         # Apply the lateral convolutions, then the bifpn layer blocks
         laterals = [
             conv(feature_map)
@@ -120,10 +168,10 @@ class BiFPNBlock(torch.nn.Module):
         for idx in range(len(input_maps) - 1, 0, -1):
             # Interpolate the previous pyramid layer, apply weighted fusion, then
             # convolution over the sum.
-            weighted_sum = self.w1[0, idx] * torch.nn.functional.interpolate(
+            weighted_sum = w1[0, idx] * torch.nn.functional.interpolate(
                 input_maps[idx], size=input_maps[idx - 1].shape[2:], mode="nearest",
-            ) + self.w1[1, idx] * input_maps_clone[idx - 1] / (
-                torch.sum(self.w1[0, idx]) + self.epsilon
+            ) + w1[1, idx] * input_maps_clone[idx - 1] / (
+                torch.sum(w1[0, idx]) + self.epsilon
             )
             # Apply the BiFPN convolution.
             input_maps_clone[idx - 1] = self.pyramid_convolutions[conv_idx](
@@ -131,32 +179,43 @@ class BiFPNBlock(torch.nn.Module):
             )
             conv_idx += 1
         # Get the bottom first pyramid layer node
-        weighted_sum = self.w1[0, 0] * torch.nn.functional.interpolate(
+        weighted_sum = w1[0, 0] * torch.nn.functional.interpolate(
             input_maps_clone[1], size=input_maps[0].shape[2:], mode="nearest",
-        ) + self.w1[1, 0] * input_maps[0] / (torch.sum(self.w1[:, 0]) + self.epsilon)
+        ) + w1[1, 0] * input_maps[0] / (torch.sum(w1[:, 0]) + self.epsilon)
         input_maps_clone[0] = self.pyramid_convolutions[conv_idx](weighted_sum)
         conv_idx += 1
         # Form the bottom up layer. The bottom up layer applies maxpooling to
         # decrease the size going up.
         for idx in range(1, len(input_maps) - 1):
-            weighted_sum = (
-                self.w2[0, idx - 1] * input_maps[idx]
-                + self.w2[1, idx - 1] * input_maps_clone[idx]
-                + self.w2[2, idx - 1]
-                * torch.nn.functional.max_pool2d(
-                    input_maps_clone[idx - 1], kernel_size=2
+            if input_maps_clone[idx - 1].shape != input_maps[idx].shape:
+                weighted_sum = (
+                    w2[0, idx - 1] * input_maps[idx]
+                    + w2[1, idx - 1] * input_maps_clone[idx]
+                    + w2[2, idx - 1]
+                    * torch.nn.functional.max_pool2d(
+                        input_maps_clone[idx - 1], kernel_size=2
+                    )
+                    / (torch.sum(w1[:, idx - 1]) + self.epsilon)
                 )
-                / (torch.sum(self.w1[:, idx - 1]) + self.epsilon)
-            )
+            else:
+                weighted_sum = (
+                    w2[0, idx - 1] * input_maps[idx]
+                    + w2[1, idx - 1] * input_maps_clone[idx]
+                    + w2[2, idx - 1]
+                    * input_maps_clone[idx - 1]
+                    / (torch.sum(w1[:, idx - 1]) + self.epsilon)
+                )
             # Apply the BiFPN convolution.
             input_maps_clone[idx] = self.pyramid_convolutions[conv_idx](weighted_sum)
             conv_idx += 1
-        weighted_sum = self.w1[0, self.num_levels - 1] * torch.nn.functional.max_pool2d(
+        weighted_sum = w1[0, self.num_levels - 1] * torch.nn.functional.max_pool2d(
             input_maps_clone[self.num_levels - 2], kernel_size=2
-        ) + self.w1[1, self.num_levels - 1] * input_maps[self.num_levels - 1] / (
-            torch.sum(self.w1[:, self.num_levels - 1]) + self.epsilon
+        ) + w1[1, self.num_levels - 1] * input_maps[self.num_levels - 1] / (
+            torch.sum(w1[:, self.num_levels - 1]) + self.epsilon
         )
         input_maps_clone[self.num_levels - 1] = self.pyramid_convolutions[conv_idx](
             input_maps_clone[self.num_levels - 1]
         )
+        for map_ in input_maps_clone:
+            print(map_.shape)
         return input_maps_clone

@@ -63,6 +63,14 @@ class Detector(torch.nn.Module):
             model = efficientdet.EfficientDet(
                 backbone=backbone, num_classes=self.num_classes, use_cuda=self.use_cuda
             )
+        elif backbone == "resnet18":
+            model = efficientdet.EfficientDet(
+                backbone=backbone, num_classes=self.num_classes, use_cuda=self.use_cuda
+            )
+        elif backbone == "resnet34":
+            model = efficientdet.EfficientDet(
+                backbone=backbone, num_classes=self.num_classes, use_cuda=self.use_cuda
+            )
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
 

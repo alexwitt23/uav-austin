@@ -187,7 +187,7 @@ class DepthwiseConv(torch.nn.Module):
                 kernel_size=kernel_size,
                 stride=stride,
                 groups=channels,
-                bias=True,
+                bias=False,
             ),
             torch.nn.BatchNorm2d(num_features=channels, momentum=0.01, eps=1e-3),
             Swish(),
@@ -285,8 +285,7 @@ class MBConvBlock(torch.nn.Module):
                 kernel_size=1,
                 bias=False,
             ),
-            torch.nn.BatchNorm2d(num_features=out_channels),
-            torch.nn.Dropout(p=dropout, inplace=True),
+            torch.nn.BatchNorm2d(num_features=out_channels, momentum=0.01, eps=1e-3),
         ]
         self.layers = torch.nn.Sequential(*self.layers)
 
@@ -369,7 +368,7 @@ class EfficientNet(torch.nn.Module):
                 )
 
             self.model_layers.append(torch.nn.Sequential(*mb_block))
-
+        self.model_layers = torch.nn.Sequential(*self.model_layers)
         out_channels = round_filters(1280, scale=scale_params[0])
         self.pre_classification = torch.nn.Sequential(
             torch.nn.Conv2d(
@@ -382,16 +381,14 @@ class EfficientNet(torch.nn.Module):
             torch.nn.AdaptiveAvgPool2d(1),
             torch.nn.Dropout(p=scale_params[-1], inplace=True),
         )
+        bias_value = -np.log((1 - 0.01) / 0.01)
+        torch.nn.init.constant_(self.pre_classification[0].bias, bias_value)
 
         self.model_head = torch.nn.Linear(
             in_features=out_channels, out_features=num_classes
         )
 
-        fan_out = self.model_head.weight.size(0)
-        init_range = 1.0 / math.sqrt(fan_out)
-        torch.nn.init.uniform_(self.model_head.weight, -init_range, init_range)
-        self.feature_levels = self.model_layers
-        self.model_layers = torch.nn.Sequential(*self.model_layers)
+        # self.apply(init)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
 
@@ -401,14 +398,14 @@ class EfficientNet(torch.nn.Module):
 
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
         """ Get the outputs at each level. """
-        x1 = self.feature_levels[0](x)
-        x2 = self.feature_levels[1](x1)
-        x3 = self.feature_levels[2](x2)
-        x4 = self.feature_levels[3](x3)
-        x5 = self.feature_levels[4](x4)
-        x6 = self.feature_levels[5](x5)
-        x7 = self.feature_levels[6](x6)
-        x8 = self.feature_levels[7](x7)
+        x1 = self.model_layers[0](x)
+        x2 = self.model_layers[1](x1)
+        x3 = self.model_layers[2](x2)
+        x4 = self.model_layers[3](x3)
+        x5 = self.model_layers[4](x4)
+        x6 = self.model_layers[5](x5)
+        x7 = self.model_layers[6](x6)
+        x8 = self.model_layers[7](x7)
 
         return [x1, x2, x3, x4, x5, x6, x7, x8]
 
@@ -421,3 +418,17 @@ class EfficientNet(torch.nn.Module):
     def delete_classification_head(self) -> None:
         del self.pre_classification
         del self.model_head
+
+
+def init(m: torch.nn.Module):
+
+    if isinstance(m, torch.nn.Conv2d):
+        torch.nn.init.kaiming_normal_(m.weight, mode="fan_out")
+        if m.bias is not None:
+            torch.nn.init.zeros_(m.bias)
+    elif isinstance(m, torch.nn.BatchNorm2d):
+        torch.nn.init.ones_(m.weight)
+        torch.nn.init.zeros_(m.bias)
+    elif isinstance(m, torch.nn.Linear):
+        torch.nn.init.normal_(m.weight, 0, 0.01)
+        torch.nn.init.zeros_(m.bias)
