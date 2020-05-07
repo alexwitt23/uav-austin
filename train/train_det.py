@@ -27,16 +27,17 @@ _IMG_WIDTH, _IMG_HEIGHT = generate_config.DETECTOR_SIZE
 _SAVE_DIR = pathlib.Path("~/runs/uav-det").expanduser()
 
 
-def detections_to_dict(bboxes: list, image_paths: torch.Tensor) -> dict:
+def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> dict:
     """ Used to turn raw bounding box detections into a dictionary
     which can be serialized for the pycocotools package. """
     detections: List[dict] = []
-    for idx, image_boxes in enumerate(bboxes):
+    for image_boxes, image_id in zip(bboxes, image_ids):
+        print(image_id.item())
         for bbox in image_boxes:
             box = bbox.box.int().tolist()
             detections.append(
                 {
-                    "image_id": idx,
+                    "image_id": image_id.item(),
                     "category_id": bbox.class_id,
                     "bbox": [box[0], box[1], box[2] - box[0], box[3] - box[1],],
                     "score": bbox.confidence,
@@ -78,7 +79,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     )
     det_model.model.backbone.delete_classification_head()
     det_model.train()
-    # sprint(f"Model architecture: \n {det_model}")
+    print(f"Model architecture: \n {det_model}")
 
     if use_cuda:
         torch.backends.cudnn.benchmark = True

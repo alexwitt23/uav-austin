@@ -111,7 +111,7 @@ def sigmoid_focal_loss(
     return loss
 
 
-class Matcher(object):
+class Matcher:
     """
     This class assigns to each predicted "element" (e.g., a box) a ground-truth
     element. Each predicted element will have exactly zero or one matches; each
@@ -129,7 +129,7 @@ class Matcher(object):
         self,
         thresholds: List[float] = [0.4, 0.5],
         labels: List[int] = [0, -1, 1],
-        allow_low_quality_matches: bool = False,
+        allow_low_quality_matches: bool = True,
     ):
         """
         Args:
@@ -214,6 +214,7 @@ class Matcher(object):
         Specifically, for each ground-truth G find the set of predictions that have
         maximum overlap with it (including ties); for each prediction in that set, if
         it is unmatched, then match it to the ground-truth G.
+
         This function implements the RPN assignment case (i) in Sec. 3.1.2 of the
         Faster R-CNN paper: https://arxiv.org/pdf/1506.01497v3.pdf.
         """
@@ -222,13 +223,26 @@ class Matcher(object):
         # Find the highest quality match available, even if it is low, including ties.
         # Note that the matches qualities must be positive due to the use of
         # `torch.nonzero`.
-        _, pred_inds_with_highest_quality = torch.nonzero(
-            match_quality_matrix == highest_quality_foreach_gt[:, None], as_tuple=True
+        gt_pred_pairs_of_highest_quality = torch.nonzero(
+            match_quality_matrix == highest_quality_foreach_gt[:, None]
         )
-        # If an anchor was labeled positive only due to a low-quality match
-        # with gt_A, but it has larger overlap with gt_B, it's matched index will still be gt_B.
-        # This follows the implementation in Detectron, and is found to have no significant impact.
-        match_labels[pred_inds_with_highest_quality] = 1
+        # Example gt_pred_pairs_of_highest_quality:
+        #   tensor([[    0, 39796],
+        #           [    1, 32055],
+        #           [    1, 32070],
+        #           [    2, 39190],
+        #           [    2, 40255],
+        #           [    3, 40390],
+        #           [    3, 41455],
+        #           [    4, 45470],
+        #           [    5, 45325],
+        #           [    5, 46390]])
+        # Each row is a (gt index, prediction index)
+        # Note how gt items 1, 2, 3, and 5 each have two ties
+
+        pred_inds_to_update = gt_pred_pairs_of_highest_quality[:, 1]
+        match_labels[pred_inds_to_update] = 1
+
 
 
 def compute_losses(
@@ -261,9 +275,14 @@ def compute_losses(
     gt_classes, gt_anchors_deltas = get_ground_truth(
         original_anchors, gt_boxes, gt_classes
     )
+
     if use_cuda:
         gt_classes = gt_classes.flatten().long().cuda()
         gt_anchors_deltas = gt_anchors_deltas.view(-1, 4).cuda()
+    else:
+        gt_classes = gt_classes.flatten().long()
+        gt_anchors_deltas = gt_anchors_deltas.view(-1, 4)
+
     pred_anchor_deltas = pred_anchor_deltas.view(-1, 4)
     pred_class_logits = pred_class_logits.view(-1, num_classes)
 
@@ -322,18 +341,16 @@ def get_ground_truth(
             The values in the tensor are meaningful only when the corresponding
             anchor is labeled as foreground.
     """
-
     gt_classes_out = []
     gt_anchors_deltas = []
     # Loop over the ground truth boxes and labels for each image in the batch.
     for gt_targets, gt_boxes in zip(gt_classes, gt_boxes_all):
-
+        
         # See if there are any labels for this image
         if len(gt_boxes) > 0:
             # Calculate a IoU matrix which compares each original anchor to each ground truth
             # box. This will allow us to see which predictions match which anchors.
             match_quality_matrix = boxes.box_iou(gt_boxes, original_anchors)
-
             gt_matched_idxs, anchor_labels = matcher(match_quality_matrix)
             #
             matched_gt_boxes = gt_boxes[gt_matched_idxs]
@@ -351,5 +368,4 @@ def get_ground_truth(
 
         gt_classes_out.append(gt_classes_i)
         gt_anchors_deltas.append(gt_anchors_reg_deltas_i)
-
     return torch.stack(gt_classes_out), torch.stack(gt_anchors_deltas)
