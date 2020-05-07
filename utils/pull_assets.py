@@ -48,9 +48,8 @@ def download_file(filenames: Union[str, List[str]], destination: pathlib.Path) -
             with tempfile.TemporaryDirectory() as d:
                 tmp_file = pathlib.Path(d) / "file.tar.gz"
 
-                with tmp_file.open("wb") as f:
-                    f.write(res.raw.read())
-                    untar_and_move(tmp_file, destination)
+                tmp_file.write_bytes(res.raw.read())
+                untar_and_move(tmp_file, destination)
 
             print(" done.")
 
@@ -71,5 +70,6 @@ def untar_and_move(filename: pathlib.Path, destination: pathlib.Path) -> None:
 def download_model(model_type: str, version: str) -> pathlib.Path:
     assert model_type in ["classifier", "detector"], f"Unsupported model {model_type}."
     filename = f"{model_type}-{version}"
-    download_file(f"{filename}.tar.gz", config.ASSETS_DIR / filename)
+    if not (config.ASSETS_DIR / filename).is_dir():
+        download_file(f"{filename}.tar.gz", config.ASSETS_DIR / filename)
     return config.ASSETS_DIR / filename / f"{model_type}.pt"

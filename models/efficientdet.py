@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import torch
 
-from models import efficientnet, BiFPN, fpn
+from models import efficientnet, BiFPN
 from third_party import retinanet_head, postprocess, regression, anchors, resnet
 
 _MODEL_SCALES = {
@@ -38,18 +38,17 @@ class EfficientDet(torch.nn.Module):
         super().__init__()
         self.num_pyramids = len(levels)
         self.num_levels_extracted = num_levels_extracted
-        # assert backbone in _MODEL_SCALES, backbone
 
-        # self.backbone = efficientnet.EfficientNet(
-        #    _MODEL_SCALES[backbone][1], num_classes=num_classes
-        # )
-        self.backbone = resnet.resnet34(pretrained=True, progress=True)
+        self.backbone = efficientnet.EfficientNet(
+            _MODEL_SCALES[backbone][1], num_classes=num_classes
+        )
+        # self.backbone = resnet.resnet34(pretrained=True, progress=True)
 
         # Get the output feature for the pyramids we need
         features = self.backbone.get_pyramid_channels()[-num_levels_extracted:]
 
         params = _MODEL_SCALES["efficientdet-b0"]
-        
+
         # Create the BiFPN with the supplied parameter options.
         self.fpn = BiFPN.BiFPN(
             in_channels=features,
@@ -58,15 +57,6 @@ class EfficientDet(torch.nn.Module):
             num_levels_in=3,
             bifpn_height=5,
         )
-        """
-        self.fpn = fpn.FPN(
-            in_channels=features,
-            out_channels=params[2],
-            pyramid_levels=[3, 4, 5, 6, 7],
-            use_transposed_conv_for_upsample=False,
-            use_dsconv=False,
-        )
-        """
         self.anchors = anchors.AnchorGenerator(
             img_height=params[0],
             img_width=params[0],

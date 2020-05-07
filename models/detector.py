@@ -1,6 +1,7 @@
-""" A detector model which wraps around a backbone.
-This allows for easy interchangeability during experimentation
-and a reliable way to load saved models. """
+""" A detector model which wraps around a feature extraction
+backbone, fpn, and RetinaNet head.This allows for easy 
+interchangeability during experimentation and a reliable way 
+to load saved models. """
 
 import pathlib
 import yaml
@@ -20,7 +21,7 @@ class Detector(torch.nn.Module):
         num_classes: int,
         version: str = None,
         backbone: str = None,
-        use_cuda: bool = torch.cuda.is_available(),
+        use_cuda: bool = False,
         half_precision: bool = False,
     ) -> None:
         super().__init__()
@@ -39,7 +40,7 @@ class Detector(torch.nn.Module):
                 model_type="detector", version=version
             )
             # Load the config in the package to determine the backbone
-            config = yaml.safe_load((model_path / "config.yaml").read_text())
+            config = yaml.safe_load((model_path.parent / "config.yaml").read_text())
             backbone = config.get("model", {}).get("backbone", None)
             # Construct the model, then load the state
             self.model = self._load_backbone(backbone)

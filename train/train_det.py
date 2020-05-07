@@ -77,7 +77,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         img_height=generate_config.DETECTOR_SIZE[0],
         num_classes=37,
     )
-    det_model.model.backbone.delete_classification_head()
+    # det_model.model.backbone.delete_classification_head()
     det_model.train()
     print(f"Model architecture: \n {det_model}")
 
@@ -189,7 +189,7 @@ def eval(
             cocoEval.summarize()
 
     if save_best:
-        model_saver.save_model(det_model, save_dir / "detector.pt")
+        model_saver.save_model(det_model.model, save_dir / "detector.pt")
 
     return 0.0
 

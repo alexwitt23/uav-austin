@@ -10,6 +10,7 @@ import shutil
 import yaml
 
 import torch
+from torchcontrib.optim import SWA
 
 from train import datasets
 from train.train_utils import model_saver
@@ -37,12 +38,13 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         img_height=generate_config.PRECLF_SIZE[0],
         num_classes=2,
     )
+    print("Model: \n", clf_model)
     if use_cuda:
         torch.backends.cudnn.benchmark = True
         clf_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], clf_model)
-
+    opt = SWA(optimizer, swa_start=0, swa_lr=0.001)
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
 
@@ -56,7 +58,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
         all_losses = []
         for idx, (data, labels) in enumerate(train_loader):
-            optimizer.zero_grad()
+            opt.zero_grad()
 
             if use_cuda:
                 data = data.cuda()
@@ -68,9 +70,9 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             # Compute the gradient throughout the model graph
             losses.backward()
             # Perform the weight updates
-            optimizer.step()
+            opt.step()
             # Update the learning rate
-            lr_scheduler.step()
+            # lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
                 lr = optimizer.param_groups[0]["lr"]
@@ -111,7 +113,6 @@ def eval(
                 labels = labels.cuda()
 
             out = clf_model(data)
-            print(out)
             _, predicted = torch.max(out.data, 1)
 
             total_num += labels.size(0)
@@ -126,7 +127,7 @@ def eval(
         if previous_best.is_file():
             previous_best.unlink()
 
-        model_saver.save_model(clf_model, save_dir / "classifier.pt")
+        model_saver.save_model(clf_model.model, save_dir / "classifier.pt")
 
     return accuracy
 

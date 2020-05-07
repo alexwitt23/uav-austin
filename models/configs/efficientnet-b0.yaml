@@ -3,11 +3,11 @@ model:
   backbone: "efficientnet-b0"
 training:
   optimizer: 
-    type: "RMSProp"
-    lr: 1e-4
+    type: "SGD"
+    lr: 1e-2
     momentum: 0.9
     weight_decay: 1e-5
-  epochs: 30
+  epochs: 1
   gpu: true
   batch_size: 45
   save_best: true

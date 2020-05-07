@@ -21,9 +21,9 @@ class Classifier(torch.nn.Module):
         num_classes: int = 2,
         version: str = None,
         backbone: str = None,
-        use_cuda: bool = torch.cuda.is_available(),
+        use_cuda: bool = False,
         half_precision: bool = False,
-    ):
+    ) -> None:
         super().__init__()
         self.num_classes = num_classes
         self.use_cuda = use_cuda

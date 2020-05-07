@@ -244,7 +244,6 @@ class Matcher:
         match_labels[pred_inds_to_update] = 1
 
 
-
 def compute_losses(
     original_anchors: torch.Tensor,
     gt_classes: List[torch.Tensor],
@@ -345,7 +344,7 @@ def get_ground_truth(
     gt_anchors_deltas = []
     # Loop over the ground truth boxes and labels for each image in the batch.
     for gt_targets, gt_boxes in zip(gt_classes, gt_boxes_all):
-        
+
         # See if there are any labels for this image
         if len(gt_boxes) > 0:
             # Calculate a IoU matrix which compares each original anchor to each ground truth

@@ -12,7 +12,11 @@ import numpy as np
 
 def classification_augmentations(height: int, width: int) -> albumentations.Compose:
     return albumentations.Compose(
-        [albumentations.Resize(height=height, width=width), albumentations.Flip(),]
+        [
+            albumentations.Resize(height=height, width=width),
+            albumentations.Flip(),
+            albumentations.Normalize(),
+        ]
     )
 
 
