@@ -114,6 +114,7 @@ class Swish(torch.nn.Module):
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.relu(x)
 
+
 def round_filters(filters: int, scale: float, min_depth: int = 8) -> int:
     """ This function is taken from the original tf repo.
     It ensures that all layers have a channel number that is divisible by 8
@@ -284,7 +285,7 @@ class MBConvBlock(torch.nn.Module):
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         x = self.layers(x)
-        #if self.skip and self.in_channels == self.out_channels:
+        # if self.skip and self.in_channels == self.out_channels:
         #    x += x
         return x
 
@@ -376,12 +377,12 @@ class EfficientNet(torch.nn.Module):
             in_features=out_channels, out_features=num_classes,
         )
 
-        #self.apply(init)
+        self.apply(init)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
 
         features = self.pre_classification(self.model_layers(x))
-        features =  torch.flatten(features, 1)
+        features = torch.flatten(features, 1)
         return self.model_head(features)
 
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
@@ -396,7 +397,7 @@ class EfficientNet(torch.nn.Module):
     def get_pyramid_channels(self) -> List[int]:
         """ Return the number of channels from each pyramid level. We only care 
         about the output channels of each MBConv block. """
-        #TODO(alex) un-hardcode
+        # TODO(alex) un-hardcode
         return [40, 112, 192]
 
     def delete_classification_head(self) -> None:
@@ -413,3 +414,6 @@ def init(m: torch.nn.Module):
     elif isinstance(m, torch.nn.BatchNorm2d):
         torch.nn.init.ones_(m.weight)
         torch.nn.init.zeros_(m.bias)
+    elif isinstance(m, torch.nn.Linear):
+        init_range = 1.0 / math.sqrt(m.weight.shape[1])
+        torch.nn.init.uniform_(m.weight, -init_range, init_range)

@@ -12,10 +12,7 @@ import numpy as np
 
 def classification_augmentations(height: int, width: int) -> albumentations.Compose:
     return albumentations.Compose(
-        [
-            albumentations.Resize(height=height, width=width),
-            albumentations.Flip(),
-        ]
+        [albumentations.Resize(height=height, width=width), albumentations.Flip(),]
     )
 
 
@@ -78,7 +75,7 @@ class DetDataset(torch.utils.data.Dataset):
         for box in boxes:
             box[2:] += box[:2]
 
-        category_ids = [list(item.values())[0] for item in labels["bboxes"]]
+        category_ids = [label["class_id"] + 1 for label in labels["bboxes"]]
 
         augmented = self.transform(
             **{"image": image, "bboxes": boxes, "category_id": category_ids}
@@ -87,8 +84,7 @@ class DetDataset(torch.utils.data.Dataset):
         image = torch.Tensor(augmented["image"]).permute(2, 0, 1)
         # Image coordinates
         boxes = boxes * torch.Tensor(2 * list(image.shape[1:]))
-
-        return image, boxes, torch.Tensor(augmented["category_id"]), idx
+        return image, boxes, torch.Tensor(augmented["category_id"]), labels["image_id"]
 
     def __len__(self) -> int:
         return self.len

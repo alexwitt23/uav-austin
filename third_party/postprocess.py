@@ -92,9 +92,9 @@ class PostProcessor:
         anchors: anchors.AnchorGenerator,
         regressor: regression.Regressor,
         score_threshold: float = 0.0,
-        max_detections_per_image: int = 100,
+        max_detections_per_image: int = 10,
         nms_threshold: float = 0.5,
-        topk_candidates: int = 100,
+        topk_candidates: int = 10,
     ):
         self.num_classes = num_classes
         self.regressor = regressor

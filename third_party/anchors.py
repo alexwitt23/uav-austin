@@ -12,7 +12,7 @@ class AnchorGenerator(torch.nn.Module):
         img_height: int,
         img_width: int,
         pyramid_levels: List[int],
-        anchor_scales: List[int],
+        anchor_scales: List[float],
         use_cuda: bool = False,
     ):
         super().__init__()
@@ -62,7 +62,7 @@ class AnchorGenerator(torch.nn.Module):
         anchors: List[torch.Tensor] = []
         # Generate anchors for each feature pyramid
         for anchor_size in anchor_sizes:
-            pyramid_anchors: List[int] = []
+            pyramid_anchors = []
             for anchor_scale in anchor_scales:
                 # The area of the box
                 area = (anchor_size * anchor_scale) ** 2

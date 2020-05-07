@@ -330,6 +330,7 @@ if __name__ == "__main__":
     )
     det_model = detector.Detector(
         version=args.det_version,
+        num_classes=37,
         img_width=generate_config.DETECTOR_SIZE[0],
         img_height=generate_config.DETECTOR_SIZE[1],
     )

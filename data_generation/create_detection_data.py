@@ -148,8 +148,8 @@ def generate_single_example(data: zip) -> None:
     ) = data
 
     data_path = config.DATA_DIR / gen_type / "images"
-    labels_fn = data_path / f"ex{number}.json"
-    img_fn = data_path / f"ex{number}{config.IMAGE_EXT}"
+    labels_fn = data_path / f"ex_{number}.json"
+    img_fn = data_path / f"ex_{number}{config.IMAGE_EXT}"
 
     background = background.copy()
     background = background.crop(
@@ -405,15 +405,14 @@ def create_coco_metadata(data_dir: pathlib.Path, out_path: pathlib.Path) -> None
     for idx, name in enumerate(CLASSES):
         categories.append({"supercategory": "none", "name": name, "id": idx})
 
-    label_files = sorted(list(data_dir.glob(f"*.json")))
-    for idx, label_file in enumerate(label_files):
+    for idx, label_file in enumerate(data_dir.glob(f"*.json")):
         labels = json.loads(label_file.read_text())
         images.append(
             {
                 "file_name": label_file.with_suffix(f"{config.IMAGE_EXT}").name,
                 "width": config.DETECTOR_SIZE[0],
                 "height": config.DETECTOR_SIZE[1],
-                "id": idx,
+                "id": labels["image_id"],
             }
         )
         # Now record the labels
