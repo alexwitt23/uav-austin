@@ -82,12 +82,12 @@ def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
         target_rgbs = [random.choice(COLORS[color]) for color in target_colors]
         alpha_rgbs = [random.choice(COLORS[color]) for color in alpha_colors]
 
-        sizes = random_list(range(30, 65), num_targets)
+        sizes = random_list(range(20, 65), num_targets)
 
         angles = random_list(range(0, 360), num_targets)
 
-        xs = random_list(range(65, config.CROP_SIZE[0] - 65, 20), num_targets)
-        ys = random_list(range(65, config.CROP_SIZE[1] - 65, 20), num_targets)
+        xs = random_list(range(70, config.CROP_SIZE[0] - 70), num_targets)
+        ys = random_list(range(70, config.CROP_SIZE[1] - 70), num_targets)
 
         shape_params.append(
             list(
