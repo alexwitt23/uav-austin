@@ -91,13 +91,13 @@ class BiFPN(torch.nn.Module):
         """
         # Make sure fpn gets the anticipated number of levels.
         assert len(feature_maps) == self.num_levels_in, len(feature_maps)
-        
+
         # If we need to downsample the last couple layers, first apply a lateral convolution if
         # needed, then upsample. This is similar to the original implementation's
         # `resample_feature_map`:
-        #https://github.com/google/automl/blob/3e7d7b77bcefb3f7051de6c468e0e17ce201165e/efficientdet/efficientdet_arch.py#L105.
-        
-        # Apply the lateral convolutions, to get the input feature maps to the same 
+        # https://github.com/google/automl/blob/3e7d7b77bcefb3f7051de6c468e0e17ce201165e/efficientdet/efficientdet_arch.py#L105.
+
+        # Apply the lateral convolutions, to get the input feature maps to the same
         # number of channels.
         feature_maps = [
             conv(feature_map)
@@ -131,7 +131,7 @@ class BiFPNBlock(torch.nn.Module):
         # Create depthwise separable convolutions that will process
         # the input feature maps. The paper also recommends a RELU activation.
         self.pyramid_convolutions = torch.nn.ModuleList()
-        for _ in range(num_levels * 2):
+        for _ in range(num_levels * 2 - 2):
             self.pyramid_convolutions.append(
                 torch.nn.Sequential(
                     torch.nn.Conv2d(
@@ -166,6 +166,7 @@ class BiFPNBlock(torch.nn.Module):
         w1 /= torch.sum(w1, dim=0) + self.epsilon  # normalize
         w2 = self.relu(self.w2)
         w2 /= torch.sum(w2, dim=0) + self.epsilon  # normalize
+    
         # Make a clone of the input list of feature maps. This will allow
         # for easier accumulation across the BiFPN block.
         input_maps_clone = [tensor.clone() for tensor in input_maps]
@@ -175,23 +176,21 @@ class BiFPNBlock(torch.nn.Module):
             # Interpolate the previous pyramid layer 'above', apply weighted fusion, then
             # convolution over the sum.
             weighted_sum = w1[0, idx] * torch.nn.functional.interpolate(
-                input_maps_clone[idx + 1], size=input_maps[idx].shape[2:], mode="nearest",
-            ) + w1[1, idx] * input_maps[idx] / (
-                torch.sum(w1[0, idx]) + self.epsilon
-            )
+                input_maps_clone[idx + 1],
+                size=input_maps[idx].shape[2:],
+                mode="nearest",
+            ) + w1[1, idx] * input_maps[idx] / (torch.sum(w1[0, idx]) + self.epsilon)
             # Apply the BiFPN convolution.
-            input_maps_clone[idx] = self.pyramid_convolutions[conv_idx](
-                weighted_sum
-            )
+            input_maps_clone[idx] = self.pyramid_convolutions[conv_idx](weighted_sum)
             conv_idx += 1
-        
+
         # Get the bottom first pyramid layer node
         weighted_sum = w1[0, 0] * torch.nn.functional.interpolate(
             input_maps_clone[1], size=input_maps[0].shape[2:], mode="nearest",
         ) + w1[1, 0] * input_maps[0] / (torch.sum(w1[:, 0]) + self.epsilon)
         input_maps_clone[0] = self.pyramid_convolutions[conv_idx](weighted_sum)
         conv_idx += 1
-        
+
         # Form the bottom up layer. The bottom up layer applies maxpooling to
         # decrease the size going up.
         for idx in range(1, len(input_maps) - 1):
@@ -225,9 +224,5 @@ class BiFPNBlock(torch.nn.Module):
         input_maps_clone[self.num_levels - 1] = self.pyramid_convolutions[conv_idx](
             weighted_sum
         )
-        
+
         return input_maps_clone
-
-
-    def _fuse_nodes(self) -> torch.Tensor:
-        pass

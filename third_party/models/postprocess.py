@@ -182,7 +182,9 @@ class PostProcessor:
         boxes_all, scores_all, class_idxs_all = [
             cat(x) for x in [boxes_all, scores_all, class_idxs_all]
         ]
-        keep = batched_nms(boxes_all.cpu(), scores_all.cpu(), class_idxs_all.cpu(), self.nms_threshold)
+        keep = batched_nms(
+            boxes_all.cpu(), scores_all.cpu(), class_idxs_all.cpu(), self.nms_threshold
+        )
         keep = keep[: self.max_detections_per_image]
 
         return [

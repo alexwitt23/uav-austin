@@ -3,20 +3,21 @@ from typing import Tuple, List
 
 import torch
 import numpy as np
-  
+
 
 class SubNetLayer(torch.nn.Module):
     """ Simple Subnet Block that allows for adding a residual as done in
     efficiendet implementation. """
+
     def __init__(
-        self, 
-        channels: int, 
-        kernel_size: int = 3, 
-        stride: int = 1, 
+        self,
+        channels: int,
+        kernel_size: int = 3,
+        stride: int = 1,
         padding: int = 1,
         residual: bool = True,
         dropout: float = 0.2,
-    ) -> None:  
+    ) -> None:
         super().__init__()
         self.residual = residual
         self.dropout = dropout
@@ -32,18 +33,16 @@ class SubNetLayer(torch.nn.Module):
             ),
             # Pointwise linear
             torch.nn.Conv2d(
-                in_channels=channels,
-                out_channels=channels,
-                kernel_size=1,
-                bias=True,
+                in_channels=channels, out_channels=channels, kernel_size=1, bias=True,
             ),
             torch.nn.BatchNorm2d(channels),
+            torch.nn.Dropout(p=self.dropout if residual else 0, inplace=True)
         )
-    
+
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         out = self.layers(x)
         if self.residual:
-            out += torch.nn.functional.dropout(x, self.dropout)
+            out += x
         return out
 
 
@@ -57,7 +56,7 @@ class RetinaNetHead(torch.nn.Module):
         num_classes: int,
         in_channels: int,
         anchors_per_cell: int,
-        num_convolutions: int = 4,  # Original paper proposes 4 convs
+        num_convolutions: int,  # Original paper proposes 4 convs
         dropout: float = 0.2,
     ) -> None:
         super().__init__()
@@ -67,9 +66,9 @@ class RetinaNetHead(torch.nn.Module):
         for idx in range(num_convolutions):
             classification_subnet += [
                 SubNetLayer(
-                    channels=in_channels, 
+                    channels=in_channels,
                     residual=True if idx > 0 else False,
-                    dropout=dropout
+                    dropout=dropout,
                 )
             ]
         # NOTE same architecture between box regression and classification
@@ -129,15 +128,12 @@ class RetinaNetHead(torch.nn.Module):
         """ Applies the regression and classification subnets to each of the 
         incoming feature maps. """
 
-        classifications: List[torch.Tensor] = []
-        bbox_regressions: List[torch.Tensor] = []
-        for map_ in feature_maps:
-            bbox_regressions.append(self.regression_subnet(map_))
-            classifications.append(self.classification_subnet(map_))
+        bbox_regressions = [self.regression_subnet(level) for level in feature_maps]
+        classifications = [self.classification_subnet(level) for level in feature_maps]
 
         return classifications, bbox_regressions
 
-    
+
 def init(module: torch.nn.Module) -> None:
     if isinstance(module, torch.nn.Conv2d) and module.bias is not None:
         torch.nn.init.kaiming_normal_(module.weight, mode="fan_out")

@@ -357,7 +357,7 @@ def get_ground_truth(
                 original_anchors, matched_gt_boxes
             )
             gt_classes_i = gt_targets[gt_matched_idxs]
-            
+
             # Anchors with label 0 are treated as background.
             gt_classes_i[anchor_labels == 0] = num_classes
             # Anchors with label -1 are ignored.

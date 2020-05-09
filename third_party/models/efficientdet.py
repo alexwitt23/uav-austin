@@ -2,7 +2,15 @@ from typing import List, Tuple
 
 import torch
 
-from third_party.models import efficientnet, BiFPN, retinanet_head, postprocess, regression, anchors, resnet
+from third_party.models import (
+    efficientnet,
+    BiFPN,
+    retinanet_head,
+    postprocess,
+    regression,
+    anchors,
+    resnet,
+)
 
 _MODEL_SCALES = {
     # (resolution, backbone, bifpn channels, num bifpn layers, head layers)
@@ -40,7 +48,7 @@ class EfficientDet(torch.nn.Module):
 
         self.backbone = efficientnet.EfficientNet(
             _MODEL_SCALES[backbone][1], num_classes=num_classes
-        )   
+        )
         self.backbone.delete_classification_head()
         # Get the output feature for the pyramids we need
         features = self.backbone.get_pyramid_channels()[-num_levels_extracted:]
@@ -68,7 +76,7 @@ class EfficientDet(torch.nn.Module):
             in_channels=params[2],
             anchors_per_cell=self.anchors.num_anchors_per_cell,
             num_convolutions=params[4],
-            dropout=0.2
+            dropout=0.2,
         )
 
         if use_cuda:

@@ -417,8 +417,14 @@ def create_coco_metadata(data_dir: pathlib.Path, out_path: pathlib.Path) -> None
         )
         # Now record the labels
         for label in labels["bboxes"]:
-            x1, y1 = int(label["x1"] * config.DETECTOR_SIZE[0]), int(label["y1"] * config.DETECTOR_SIZE[1])
-            w, h = int(label["w"] * config.DETECTOR_SIZE[0]), int(label["h"] * config.DETECTOR_SIZE[1])
+            x1, y1 = (
+                int(label["x1"] * config.DETECTOR_SIZE[0]),
+                int(label["y1"] * config.DETECTOR_SIZE[1]),
+            )
+            w, h = (
+                int(label["w"] * config.DETECTOR_SIZE[0]),
+                int(label["h"] * config.DETECTOR_SIZE[1]),
+            )
 
             annotations.append(
                 {
@@ -438,7 +444,7 @@ def create_coco_metadata(data_dir: pathlib.Path, out_path: pathlib.Path) -> None
                         * config.DETECTOR_SIZE[0]
                     ),
                     "image_id": labels["image_id"],
-                    "segmentation": [[x1, y1, x1, y1 + h, x1 + w, y1+ h, x1 + w, y1]],
+                    "segmentation": [[x1, y1, x1, y1 + h, x1 + w, y1 + h, x1 + w, y1]],
                 }
             )
     out_path.write_text(
