@@ -15,9 +15,11 @@ class SubNetLayer(torch.nn.Module):
         stride: int = 1, 
         padding: int = 1,
         residual: bool = True,
+        dropout: float = 0.2,
     ) -> None:  
         super().__init__()
         self.residual = residual
+        self.dropout = dropout
         self.layers = torch.nn.Sequential(
             # Depthwise
             torch.nn.Conv2d(
@@ -41,10 +43,8 @@ class SubNetLayer(torch.nn.Module):
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         out = self.layers(x)
         if self.residual:
-            out += x
+            out += torch.nn.functional.dropout(x, self.dropout)
         return out
-
-
 
 
 class RetinaNetHead(torch.nn.Module):
@@ -58,6 +58,7 @@ class RetinaNetHead(torch.nn.Module):
         in_channels: int,
         anchors_per_cell: int,
         num_convolutions: int = 4,  # Original paper proposes 4 convs
+        dropout: float = 0.2,
     ) -> None:
         super().__init__()
 
@@ -67,7 +68,8 @@ class RetinaNetHead(torch.nn.Module):
             classification_subnet += [
                 SubNetLayer(
                     channels=in_channels, 
-                    residual=True if idx > 0 else False
+                    residual=True if idx > 0 else False,
+                    dropout=dropout
                 )
             ]
         # NOTE same architecture between box regression and classification
@@ -118,6 +120,9 @@ class RetinaNetHead(torch.nn.Module):
         self.regression_subnet = torch.nn.Sequential(*regression_subnet)
         self.classification_subnet = torch.nn.Sequential(*classification_subnet)
 
+        self.regression_subnet.apply(init)
+        self.classification_subnet.apply(init)
+
     def __call__(
         self, feature_maps: List[torch.Tensor]
     ) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
@@ -131,3 +136,9 @@ class RetinaNetHead(torch.nn.Module):
             classifications.append(self.classification_subnet(map_))
 
         return classifications, bbox_regressions
+
+    
+def init(module: torch.nn.Module) -> None:
+    if isinstance(module, torch.nn.Conv2d) and module.bias is not None:
+        torch.nn.init.kaiming_normal_(module.weight, mode="fan_out")
+        torch.nn.init.constant_(module.bias, -np.log((1 - 0.01) / 0.01))

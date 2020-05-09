@@ -244,6 +244,7 @@ class MBConvBlock(torch.nn.Module):
     ) -> None:
         super().__init__()
         self.skip = skip
+        self.dropout = dropout
         self.in_channels = in_channels
         self.out_channels = out_channels
 
@@ -287,7 +288,7 @@ class MBConvBlock(torch.nn.Module):
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         x = self.layers(x)
         if self.skip and self.in_channels == self.out_channels:
-            x += x
+            x += torch.nn.functional.dropout(x, self.dropout)
         return x
 
 
@@ -401,9 +402,9 @@ class EfficientNet(torch.nn.Module):
         # TODO(alex) un-hardcode
         return [40, 112, 192]
 
-    # def delete_classification_head(self) -> None:
-    #    del self.pre_classification
-    #    del self.model_head
+    def delete_classification_head(self) -> None:
+        del self.pre_classification
+        del self.model_head
 
 
 def init(m: torch.nn.Module):

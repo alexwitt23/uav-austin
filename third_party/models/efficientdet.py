@@ -40,8 +40,8 @@ class EfficientDet(torch.nn.Module):
 
         self.backbone = efficientnet.EfficientNet(
             _MODEL_SCALES[backbone][1], num_classes=num_classes
-        )
-        
+        )   
+        self.backbone.delete_classification_head()
         # Get the output feature for the pyramids we need
         features = self.backbone.get_pyramid_channels()[-num_levels_extracted:]
 
@@ -62,12 +62,13 @@ class EfficientDet(torch.nn.Module):
             anchor_scales=[1.0, 1.2599, 1.5874],
             use_cuda=use_cuda,
         )
-        # Create the resnet head.
+        # Create the retinanet head.
         self.retinanet_head = retinanet_head.RetinaNetHead(
             num_classes,
             in_channels=params[2],
             anchors_per_cell=self.anchors.num_anchors_per_cell,
             num_convolutions=params[4],
+            dropout=0.2
         )
 
         if use_cuda:

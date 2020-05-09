@@ -4,7 +4,7 @@ model:
 training:
   optimizer: 
     type: "SGD"
-    lr: 1e-4
+    lr: 1e-5
     momentum: 0.9
     weight_decay: 1e-5
   epochs: 50
