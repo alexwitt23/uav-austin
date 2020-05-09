@@ -49,7 +49,7 @@ CLF_TYPES = ["background", "target"]
 TARGET_COLORS = [
     "white",
     "black",
-    "gray",
+    #"gray",
     "red",
     "blue",
     "green",
@@ -61,7 +61,7 @@ TARGET_COLORS = [
 ALPHA_COLORS = [
     "white",
     "black",
-    "gray",
+    #"gray",
     "red",
     "blue",
     "green",
@@ -71,9 +71,9 @@ ALPHA_COLORS = [
 ]
 
 COLORS = {
-    "white": [(240, 239, 233)],
+    "white": [(240, 240, 240)],
     "black": [(5, 5, 5)],
-    "gray": [(128, 128, 128)],
+    #"gray": [(128, 128, 128)],
     "red": [(188, 60, 60), (255, 80, 80), (255, 0, 0), (154, 0, 0)],
     "blue": [(0, 0, 255), (0, 0, 135)],
     "green": [(64, 115, 64), (148, 255, 148), (0, 255, 0), (0, 128, 4)],

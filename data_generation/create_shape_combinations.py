@@ -50,7 +50,7 @@ def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
     # There are multiple paramters this data must map.
     # Shape base, shape color, alpha-numeric, and alpha-numeric color
     a = [
-        config.SHAPE_TYPES,
+        ["circle"], #config.SHAPE_TYPES,
         TARGET_COLORS,
         config.ALPHAS,
         ALPHA_COLORS,
@@ -68,19 +68,21 @@ def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
     shape_params = []
 
     for combination in itertools.product(*a):
+        combination = list(combination)
         font_files = random_list(config.ALPHA_FONTS, num_targets)
 
-        target_colors = random_list(TARGET_COLORS, num_targets)
-        alpha_colors = random_list(ALPHA_COLORS, num_targets)
-
+        target_colors = [combination[1]] * num_targets
+  
         # Make sure shape and alpha are different colors
-        for i, target_color in enumerate(target_colors):
-            while alpha_colors[i] == target_color:
-                alpha_colors[i] = random.choice(ALPHA_COLORS)
+        if combination[1] == combination[3]:
+            while combination[3] == combination[1]:
+                combination[3] = random.choice(ALPHA_COLORS)
+                
+        alpha_colors = [combination[3]] *  num_targets
 
-        target_rgbs = [random.choice(COLORS[color]) for color in target_colors]
-        alpha_rgbs = [random.choice(COLORS[color]) for color in alpha_colors]
-
+        target_rgbs = [random.choice(COLORS[color]) for color in [combination[1]]]
+        alpha_rgbs = [random.choice(COLORS[color]) for color in  [combination[3]]]
+        
         sizes = random_list(range(30, 65), num_targets)
         xs = random_list(range(65, config.CROP_SIZE[0] - 65, 20), num_targets)
         ys = random_list(range(65, config.CROP_SIZE[1] - 65, 20), num_targets)
@@ -150,7 +152,7 @@ def add_shapes(
         bg_at_shape.paste(shape_img, (0, 0), shape_img)
         background.paste(bg_at_shape, (x, y))
         background = background.crop((x1 + x, y1 + y, x2 + x, y2 + y))
-        background = background.filter(ImageFilter.GaussianBlur(1))
+        background = background.filter(ImageFilter.SMOOTH_MORE)
     return background.convert("RGB")
 
 
@@ -204,16 +206,16 @@ def create_shape(
 
     image = rotate_shape(image, shape, angle)
     image = strip_image(image)
-    img_name = f"{shape}_{target_color}_{alpha}_{alpha_color}"
+    img_name = f"{shape}_{target_color}_{alpha}_{alpha_color}_{angle}"
     return image, img_name
 
 
 def augment_color(color_rgb):
     """Shift the color a bit"""
     r, g, b = color_rgb
-    r = max(min(r + random.randint(-10, 11), 255), 1)
-    g = max(min(g + random.randint(-10, 11), 255), 1)
-    b = max(min(b + random.randint(-10, 11), 255), 1)
+    #r = max(min(r + random.randint(-10, 11), 255), 1)
+    #g = max(min(g + random.randint(-10, 11), 255), 1)
+    #b = max(min(b + random.randint(-10, 11), 255), 1)
     return (r, g, b)
 
 
@@ -310,7 +312,8 @@ def add_alphanumeric(
     elif shape == "square":
         y -= 10
     elif shape == "circle":
-        pass
+        x -= random.randint(-15, 15)
+        y -= random.randint(-15, 15)
     else:
         pass
 
