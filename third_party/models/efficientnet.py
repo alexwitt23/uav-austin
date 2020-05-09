@@ -11,7 +11,7 @@ import math
 import torch
 import numpy as np
 
-from models import classifier
+from third_party.models import classifier
 
 
 _MODEL_SCALES = {

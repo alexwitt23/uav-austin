@@ -4,7 +4,7 @@ import dataclasses
 import torch
 from torchvision.ops import boxes as box_ops
 
-from third_party import regression, anchors
+from third_party.models import regression, anchors
 
 
 @dataclasses.dataclass
@@ -91,10 +91,10 @@ class PostProcessor:
         num_classes: int,
         anchors: anchors.AnchorGenerator,
         regressor: regression.Regressor,
-        score_threshold: float = 0.0,
-        max_detections_per_image: int = 10,
+        score_threshold: float = 0.1,
+        max_detections_per_image: int = 100,
         nms_threshold: float = 0.5,
-        topk_candidates: int = 10,
+        topk_candidates: int = 100,
     ):
         self.num_classes = num_classes
         self.regressor = regressor
@@ -182,7 +182,7 @@ class PostProcessor:
         boxes_all, scores_all, class_idxs_all = [
             cat(x) for x in [boxes_all, scores_all, class_idxs_all]
         ]
-        keep = batched_nms(boxes_all, scores_all, class_idxs_all, self.nms_threshold)
+        keep = batched_nms(boxes_all.cpu(), scores_all.cpu(), class_idxs_all.cpu(), self.nms_threshold)
         keep = keep[: self.max_detections_per_image]
 
         return [

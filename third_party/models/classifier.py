@@ -10,7 +10,7 @@ import torch
 import torchvision
 
 from utils import pull_assets
-from models import efficientnet
+from third_party.models import efficientnet, resnet
 
 
 class Classifier(torch.nn.Module):
@@ -65,7 +65,7 @@ class Classifier(torch.nn.Module):
                 backbone=backbone, num_classes=self.num_classes
             )
         elif backbone == "resnet18":
-            model = torchvision.models.resnet18(num_classes=self.num_classes)
+            model = resnet.resnet18(num_classes=self.num_classes)
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
 

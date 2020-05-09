@@ -44,7 +44,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         clf_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], clf_model)
-    opt = SWA(optimizer, swa_start=0, swa_lr=0.001)
+    opt = SWA(optimizer, swa_start=0, swa_lr=0.000001)
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
 

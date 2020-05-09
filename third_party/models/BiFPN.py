@@ -181,12 +181,14 @@ class BiFPNBlock(torch.nn.Module):
                 weighted_sum
             )
             conv_idx += 1
+        """
         # Get the bottom first pyramid layer node
         weighted_sum = w1[0, 0] * torch.nn.functional.interpolate(
             input_maps_clone[1], size=input_maps[0].shape[2:], mode="nearest",
         ) + w1[1, 0] * input_maps[0] / (torch.sum(w1[:, 0]) + self.epsilon)
         input_maps_clone[0] = self.pyramid_convolutions[conv_idx](weighted_sum)
         conv_idx += 1
+        """
         # Form the bottom up layer. The bottom up layer applies maxpooling to
         # decrease the size going up.
         for idx in range(1, len(input_maps) - 1):
@@ -211,6 +213,7 @@ class BiFPNBlock(torch.nn.Module):
             # Apply the BiFPN convolution.
             input_maps_clone[idx] = self.pyramid_convolutions[conv_idx](weighted_sum)
             conv_idx += 1
+        """
         weighted_sum = w1[0, self.num_levels - 1] * torch.nn.functional.max_pool2d(
             input_maps_clone[self.num_levels - 2], kernel_size=2
         ) + w1[1, self.num_levels - 1] * input_maps[self.num_levels - 1] / (
@@ -219,5 +222,5 @@ class BiFPNBlock(torch.nn.Module):
         input_maps_clone[self.num_levels - 1] = self.pyramid_convolutions[conv_idx](
             input_maps_clone[self.num_levels - 1]
         )
-
+        """
         return input_maps_clone

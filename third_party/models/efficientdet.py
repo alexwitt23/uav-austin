@@ -2,8 +2,7 @@ from typing import List, Tuple
 
 import torch
 
-from models import efficientnet, BiFPN
-from third_party import retinanet_head, postprocess, regression, anchors, resnet
+from third_party.models import efficientnet, BiFPN, retinanet_head, postprocess, regression, anchors, resnet
 
 _MODEL_SCALES = {
     # (resolution, backbone, bifpn channels, num bifpn layers, head layers)

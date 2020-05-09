@@ -3,7 +3,7 @@ from typing import List, Dict
 import torch
 from torchvision.ops import boxes
 
-from third_party import postprocess, regression
+from third_party.models import postprocess, regression
 
 
 def smooth_l1_loss(
@@ -129,7 +129,7 @@ class Matcher:
         self,
         thresholds: List[float] = [0.4, 0.5],
         labels: List[int] = [0, -1, 1],
-        allow_low_quality_matches: bool = True,
+        allow_low_quality_matches: bool = False,
     ):
         """
         Args:
@@ -272,7 +272,7 @@ def compute_losses(
     # Take the ground truth labels and boxes and find which original anchors
     # match the ground truth boxes the best.
     gt_classes, gt_anchors_deltas = get_ground_truth(
-        original_anchors, gt_boxes, gt_classes
+        original_anchors, gt_boxes, gt_classes, num_classes=num_classes
     )
 
     if use_cuda:
@@ -317,7 +317,7 @@ def get_ground_truth(
     gt_classes: List[torch.Tensor],
     matcher=Matcher(),
     regressor=regression.Regressor(),
-    num_classes: int = 0,
+    num_classes: int = None,
 ):
     """
     Args:
@@ -357,6 +357,7 @@ def get_ground_truth(
                 original_anchors, matched_gt_boxes
             )
             gt_classes_i = gt_targets[gt_matched_idxs]
+            
             # Anchors with label 0 are treated as background.
             gt_classes_i[anchor_labels == 0] = num_classes
             # Anchors with label -1 are ignored.
@@ -367,4 +368,5 @@ def get_ground_truth(
 
         gt_classes_out.append(gt_classes_i)
         gt_anchors_deltas.append(gt_anchors_reg_deltas_i)
+
     return torch.stack(gt_classes_out), torch.stack(gt_anchors_deltas)

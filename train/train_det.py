@@ -14,13 +14,13 @@ import shutil
 
 from pycocotools import coco, cocoeval
 import torch
+from torchcontrib.optim import SWA
 import numpy as np
 
 from train import datasets
 from train.train_utils import model_saver
-from models import detector
 from data_generation import generate_config
-from third_party import losses
+from third_party.models import losses, detector
 
 _LOG_INTERVAL = 10
 _IMG_WIDTH, _IMG_HEIGHT = generate_config.DETECTOR_SIZE
@@ -32,8 +32,8 @@ def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> dict:
     which can be serialized for the pycocotools package. """
     detections: List[dict] = []
     for image_boxes, image_id in zip(bboxes, image_ids):
-        print(image_id.item())
         for bbox in image_boxes:
+            print(bbox)
             box = bbox.box.int().tolist()
             detections.append(
                 {
@@ -85,8 +85,8 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         torch.backends.cudnn.benchmark = True
         det_model.cuda()
 
-    optimizer = create_optimizer(train_cfg["optimizer"], det_model)
-
+    optimizer1 = create_optimizer(train_cfg["optimizer"], det_model)
+    optimizer = SWA(optimizer1, swa_start=10, swa_freq=5, swa_lr=1e-100)
     # TODO(alex) make this configurable
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
         optimizer, len(train_loader), 1, 1e-9
@@ -100,7 +100,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         all_losses = []
         clf_losses = []
         reg_losses = []
-
+        
         for idx, (images, boxes, classes, _) in enumerate(train_loader):
 
             optimizer.zero_grad()
@@ -131,7 +131,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             all_losses.append(total_loss.item())
             # Perform the parameter updates
             optimizer.step()
-            lr_scheduler.step()
+            #lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
                 print(
@@ -139,7 +139,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                     f"clf loss {sum(clf_losses) / len(clf_losses):.5}, "
                     f"reg loss {sum(reg_losses) / len(reg_losses):.5}"
                 )
-
+        """
         # Call evaluation function
         det_model.eval()
         eval_acc = eval(
@@ -147,7 +147,8 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         )
         highest_score = eval_acc if eval_acc > highest_score else eval_acc
         det_model.train()
-
+        """
+        eval_acc = 0.0
         print(
             f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5} \n"
             f"Eval accuracy: {eval_acc:.4}"
@@ -173,6 +174,7 @@ def eval(
                 images = images.cuda()
             total_num += images.shape[0]
             detections = det_model(images)
+            print(detections)
             detections_dict.extend(detections_to_dict(detections, image_ids))
 
         print(

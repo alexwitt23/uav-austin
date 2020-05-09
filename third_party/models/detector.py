@@ -10,7 +10,7 @@ import torch
 import torchvision
 
 from utils import pull_assets
-from models import efficientdet
+from third_party.models import efficientdet
 
 
 class Detector(torch.nn.Module):
@@ -21,7 +21,7 @@ class Detector(torch.nn.Module):
         num_classes: int,
         version: str = None,
         backbone: str = None,
-        use_cuda: bool = False,
+        use_cuda: bool = True,
         half_precision: bool = False,
     ) -> None:
         super().__init__()
