@@ -5,6 +5,7 @@ depth (more layers), width (more filters per layer), resolution
 (larger input images), and dropout (a regularization technique 
 to cause sparse feature learning). """
 
+import collections
 from typing import Tuple, List
 import math
 

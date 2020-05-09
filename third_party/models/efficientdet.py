@@ -41,8 +41,7 @@ class EfficientDet(torch.nn.Module):
         self.backbone = efficientnet.EfficientNet(
             _MODEL_SCALES[backbone][1], num_classes=num_classes
         )
-        # self.backbone = resnet.resnet34(pretrained=True, progress=True)
-
+        
         # Get the output feature for the pyramids we need
         features = self.backbone.get_pyramid_channels()[-num_levels_extracted:]
 

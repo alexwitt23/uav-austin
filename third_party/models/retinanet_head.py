@@ -3,6 +3,48 @@ from typing import Tuple, List
 
 import torch
 import numpy as np
+  
+
+class SubNetLayer(torch.nn.Module):
+    """ Simple Subnet Block that allows for adding a residual as done in
+    efficiendet implementation. """
+    def __init__(
+        self, 
+        channels: int, 
+        kernel_size: int = 3, 
+        stride: int = 1, 
+        padding: int = 1,
+        residual: bool = True,
+    ) -> None:  
+        super().__init__()
+        self.residual = residual
+        self.layers = torch.nn.Sequential(
+            # Depthwise
+            torch.nn.Conv2d(
+                in_channels=channels,
+                out_channels=channels,
+                kernel_size=kernel_size,
+                padding=padding,
+                groups=channels,
+                bias=False,
+            ),
+            # Pointwise linear
+            torch.nn.Conv2d(
+                in_channels=channels,
+                out_channels=channels,
+                kernel_size=1,
+                bias=True,
+            ),
+            torch.nn.BatchNorm2d(channels),
+        )
+    
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        out = self.layers(x)
+        if self.residual:
+            out += x
+        return out
+
+
 
 
 class RetinaNetHead(torch.nn.Module):
@@ -16,32 +58,17 @@ class RetinaNetHead(torch.nn.Module):
         in_channels: int,
         anchors_per_cell: int,
         num_convolutions: int = 4,  # Original paper proposes 4 convs
-    ):
+    ) -> None:
         super().__init__()
 
         # Create the two subnets
         classification_subnet = torch.nn.ModuleList([])
-        for _ in range(num_convolutions):
+        for idx in range(num_convolutions):
             classification_subnet += [
-                # Depthwise
-                torch.nn.Conv2d(
-                    in_channels=in_channels,
-                    out_channels=in_channels,
-                    kernel_size=3,
-                    stride=1,
-                    padding=1,
-                    groups=in_channels,
-                    bias=False,
-                ),
-                # Pointwise linear
-                torch.nn.Conv2d(
-                    in_channels=in_channels,
-                    out_channels=in_channels,
-                    kernel_size=1,
-                    stride=1,
-                    bias=True,
-                ),
-                torch.nn.ReLU(inplace=True),
+                SubNetLayer(
+                    channels=in_channels, 
+                    residual=True if idx > 0 else False
+                )
             ]
         # NOTE same architecture between box regression and classification
         regression_subnet = copy.deepcopy(classification_subnet)
