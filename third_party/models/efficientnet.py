@@ -286,10 +286,10 @@ class MBConvBlock(torch.nn.Module):
         self.layers = torch.nn.Sequential(*self.layers)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.layers(x)
+        out = self.layers(x)
         if self.skip and self.in_channels == self.out_channels:
-            x += torch.nn.functional.dropout(x, self.dropout)
-        return x
+            out = torch.nn.functional.dropout(out, self.dropout) + x
+        return out
 
 
 class EfficientNet(torch.nn.Module):
