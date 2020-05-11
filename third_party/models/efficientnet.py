@@ -104,7 +104,8 @@ _DEFAULT_MB_BLOCKS_ARGS = [
     },
 ]
 
-
+# NOTE some people use relu here instead as it is non-transcindental.
+# Might lead to smaller memory footprint and quicker runtime.
 class Swish(torch.nn.Module):
     """ Swish activation function presented here:
     https://arxiv.org/pdf/1710.05941.pdf. """
@@ -113,7 +114,7 @@ class Swish(torch.nn.Module):
         super().__init__()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.nn.functional.relu(x)
+        return x * torch.sigmoid_(x)
 
 
 def round_filters(filters: int, scale: float, min_depth: int = 8) -> int:

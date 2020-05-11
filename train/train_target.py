@@ -7,7 +7,7 @@ import pathlib
 
 import torch 
 
-from third_party.models import efficientnet 
+from third_party.models import efficientnet, resnet 
 from data_generation import generate_config as config
 from train import datasets
 
@@ -30,24 +30,27 @@ a = [
 ]
 
 def train(model, loader):
-
-    loss_fn = torch.nn.TripletMarginLoss(1e-2)
+    losses = []
+    loss_fn = torch.nn.TripletMarginLoss(10)
     optim = torch.optim.SGD(model.parameters(), lr=1e-2)
-    for anchor, positive, negative in loader:
-        out1 = model(anchor)
-        out2 = model(positive)
-        out3 = model(negative)
+    for idx, (anchor, positive, negative) in enumerate(loader):
+        optim.zero_grad()
+        anchor = anchor.cuda()
+        positive = positive.cuda()
+        negative = negative.cuda()
 
+        out1 = model.final_features(anchor)
+        out2 = model.final_features(positive)
+        out3 = model.final_features(negative)
         loss = loss_fn(out1, out2, out3)
-        print(loss)
+        losses.append(loss.item())
+        print(f"{idx} : {sum(losses) / len(losses)}")
         loss.backward()
         optim.step()
 
 if __name__ == "__main__":
-    model = efficientnet.EfficientNet(
-        "efficientnet-b0", 
-        num_classes=len(list(itertools.product(*a)))
-    )
+    model = resnet.resnet18(num_classes=len(list(itertools.product(*a))))
+    model.cuda()
     classes = {"_".join([str(item) for item in name]) : idx for idx, name in enumerate(set(itertools.product(*a)))}
     dataset = datasets.TargetDataset(
         pathlib.Path("data_generation/data/combinataions_train/images"),
@@ -57,7 +60,7 @@ if __name__ == "__main__":
         classes=classes,
     )
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=20, pin_memory=True, shuffle=True
+        dataset, batch_size=65, pin_memory=True, shuffle=True
     )
 
     train(model, loader)

@@ -313,6 +313,24 @@ class ResNet(nn.Module):
 
         return x
 
+    def final_features(self, x: torch.Tensor) -> List[torch.Tensor]:
+        """ A forward pass for detection where different pyramid levels
+        are extracted. """
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+
+        return x
+
     def delete_classification_head(self) -> None:
         del self.avgpool
         del self.fc

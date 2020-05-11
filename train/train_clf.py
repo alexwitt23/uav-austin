@@ -14,7 +14,7 @@ from torchcontrib.optim import SWA
 
 from train import datasets
 from train.train_utils import model_saver
-from models import classifier
+from third_party.models import classifier
 from data_generation import generate_config
 
 _LOG_INTERVAL = 50

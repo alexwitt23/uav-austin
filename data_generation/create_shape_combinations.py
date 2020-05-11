@@ -50,7 +50,7 @@ def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
     # There are multiple paramters this data must map.
     # Shape base, shape color, alpha-numeric, and alpha-numeric color
     a = [
-        ["circle"], #config.SHAPE_TYPES,
+        config.SHAPE_TYPES,
         TARGET_COLORS,
         config.ALPHAS,
         ALPHA_COLORS,
