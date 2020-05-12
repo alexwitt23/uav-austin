@@ -9,7 +9,7 @@ import yaml
 import torch
 import torchvision
 
-from utils import pull_assets
+from core import pull_assets
 from third_party.models import efficientdet
 
 

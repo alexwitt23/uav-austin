@@ -12,9 +12,6 @@ import math
 import torch
 import numpy as np
 
-from third_party.models import classifier
-
-
 _MODEL_SCALES = {
     # (width_coefficient, depth_coefficient, resolution, dropout_rate)
     "efficientnet-b0": (1.0, 1.0, 224, 0.2),

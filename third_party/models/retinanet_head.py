@@ -36,7 +36,7 @@ class SubNetLayer(torch.nn.Module):
                 in_channels=channels, out_channels=channels, kernel_size=1, bias=True,
             ),
             torch.nn.BatchNorm2d(channels),
-            torch.nn.Dropout(p=self.dropout if residual else 0, inplace=True)
+            torch.nn.Dropout(p=self.dropout if residual else 0, inplace=True),
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:

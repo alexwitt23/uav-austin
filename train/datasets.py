@@ -96,21 +96,20 @@ class DetDataset(torch.utils.data.Dataset):
 
 
 class TargetDataset(torch.utils.data.Dataset):
-
     def __init__(
         self,
         data_dir: pathlib.Path,
         img_ext: str = ".png",
-        img_width: int = 224,
-        img_height: int = 224,
+        img_width: int = 100,
+        img_height: int = 100,
         classes: dict = {},
     ) -> None:
         super().__init__()
         self.images = list(data_dir.glob(f"*{img_ext}"))
+
         self.len = len(self.images)
         self.classes = classes
         self.transform = classification_augmentations(224, 244)
-
 
     def __len__(self) -> int:
         return self.len
@@ -128,7 +127,7 @@ class TargetDataset(torch.utils.data.Dataset):
 
         image2 = np.asarray(Image.open(image_path1).convert("RGB"))
         image2 = torch.Tensor(self.transform(image=image2)["image"]).permute(2, 0, 1)
-        
+
         image3 = np.asarray(Image.open(image_path2).convert("RGB"))
         image3 = torch.Tensor(self.transform(image=image3)["image"]).permute(2, 0, 1)
 

@@ -137,7 +137,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                     f"clf loss {sum(clf_losses) / len(clf_losses):.5}, "
                     f"reg loss {sum(reg_losses) / len(reg_losses):.5}"
                 )
-        
+
         # Call evaluation function
         det_model.eval()
         eval_acc = eval(
@@ -145,7 +145,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         )
         highest_score = eval_acc if eval_acc > highest_score else eval_acc
         det_model.train()
-        
+
         eval_acc = 0.0
         print(
             f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5} \n"

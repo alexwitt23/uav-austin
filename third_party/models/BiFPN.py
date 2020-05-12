@@ -166,7 +166,7 @@ class BiFPNBlock(torch.nn.Module):
         w1 /= torch.sum(w1, dim=0) + self.epsilon  # normalize
         w2 = self.relu(self.w2)
         w2 /= torch.sum(w2, dim=0) + self.epsilon  # normalize
-    
+
         # Make a clone of the input list of feature maps. This will allow
         # for easier accumulation across the BiFPN block.
         input_maps_clone = [tensor.clone() for tensor in input_maps]

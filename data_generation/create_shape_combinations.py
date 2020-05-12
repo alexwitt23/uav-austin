@@ -23,7 +23,7 @@ from PIL import (
 )
 
 from data_generation import generate_config as config
-from utils import pull_assets
+from core import pull_assets
 
 # Get constants from config
 NUM_GEN = int(config.NUM_IMAGES)
@@ -34,6 +34,8 @@ ALPHA_COLORS = config.ALPHA_COLORS
 COLORS = config.COLORS
 CLASSES = config.OD_CLASSES
 ALPHAS = config.ALPHAS
+
+_NUM_COMBINATIONS = 4000
 
 
 def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
@@ -57,6 +59,8 @@ def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
         [angle for angle in range(0, 360, 45)],
     ]
     combinations = list(itertools.product(*a))
+    random.shuffle(combinations)
+    combinations = combinations[:_NUM_COMBINATIONS]
     num_gen = len(combinations)
 
     numbers = list(range(offset, num_gen + offset))
@@ -67,22 +71,22 @@ def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
     num_targets = 1
     shape_params = []
 
-    for combination in itertools.product(*a):
+    for combination in combinations[:_NUM_COMBINATIONS]:
         combination = list(combination)
         font_files = random_list(config.ALPHA_FONTS, num_targets)
 
         target_colors = [combination[1]] * num_targets
-  
+
         # Make sure shape and alpha are different colors
         if combination[1] == combination[3]:
             while combination[3] == combination[1]:
                 combination[3] = random.choice(ALPHA_COLORS)
-                
-        alpha_colors = [combination[3]] *  num_targets
+
+        alpha_colors = [combination[3]] * num_targets
 
         target_rgbs = [random.choice(COLORS[color]) for color in [combination[1]]]
-        alpha_rgbs = [random.choice(COLORS[color]) for color in  [combination[3]]]
-        
+        alpha_rgbs = [random.choice(COLORS[color]) for color in [combination[3]]]
+
         sizes = random_list(range(30, 65), num_targets)
         xs = random_list(range(65, config.CROP_SIZE[0] - 65, 20), num_targets)
         ys = random_list(range(65, config.CROP_SIZE[1] - 65, 20), num_targets)
@@ -213,9 +217,9 @@ def create_shape(
 def augment_color(color_rgb):
     """Shift the color a bit"""
     r, g, b = color_rgb
-    #r = max(min(r + random.randint(-10, 11), 255), 1)
-    #g = max(min(g + random.randint(-10, 11), 255), 1)
-    #b = max(min(b + random.randint(-10, 11), 255), 1)
+    # r = max(min(r + random.randint(-10, 11), 255), 1)
+    # g = max(min(g + random.randint(-10, 11), 255), 1)
+    # b = max(min(b + random.randint(-10, 11), 255), 1)
     return (r, g, b)
 
 

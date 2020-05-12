@@ -1,24 +1,22 @@
-""" A classifier model which wraps around a backbone.
-This allows for easy interchangeability during experimentation
-and a reliable way to load saved models. """
+""" A detector model which wraps around a feature extraction
+backbone, fpn, and RetinaNet head.This allows for easy 
+interchangeability during experimentation and a reliable way 
+to load saved models. """
 
 import pathlib
-import math
 import yaml
 
 import torch
 import torchvision
 
-from utils import pull_assets
-from third_party.models import efficientnet, resnet
+from core import pull_assets
+from third_party.models import resnet
 
 
-class Classifier(torch.nn.Module):
+class TargetTyper(torch.nn.Module):
     def __init__(
         self,
-        img_width: int,
-        img_height: int,
-        num_classes: int = 2,
+        num_classes: int,
         version: str = None,
         backbone: str = None,
         use_cuda: bool = False,
@@ -28,6 +26,7 @@ class Classifier(torch.nn.Module):
         self.num_classes = num_classes
         self.use_cuda = use_cuda
         self.half_precision = half_precision
+
         if backbone is None and version is None:
             raise ValueError("Must supply either model version or backbone to load")
 
@@ -35,7 +34,7 @@ class Classifier(torch.nn.Module):
         if version is not None:
             # Download the model. This has the yaml containing the backbone.
             model_path = pull_assets.download_model(
-                model_type="classifier", version=version
+                model_type="target_typer", version=version
             )
             # Load the config in the package to determine the backbone
             config = yaml.safe_load((model_path.parent / "config.yaml").read_text())
@@ -48,19 +47,17 @@ class Classifier(torch.nn.Module):
             self.model = self._load_backbone(backbone)
 
         self.model.eval()
+
         if self.use_cuda and self.half_precision:
             self.model.cuda()
             self.model.half()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        # If using cuda and not training, assume inference.
-        if self.use_cuda and self.half_precision:
-            x = x.half()
-        return self.model(x)
+        return self.model.final_features(x)
 
     def _load_backbone(self, backbone: str) -> torch.nn.Module:
         """ Load the supplied backbone. """
-        if backbone in efficientnet._MODEL_SCALES:
+        if backbone == "efficientdet-b0":
             model = efficientnet.EfficientNet(
                 backbone=backbone, num_classes=self.num_classes
             )
@@ -69,10 +66,6 @@ class Classifier(torch.nn.Module):
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
 
-        return model
+        model.delete_classification_head()
 
-    def classify(self, x: torch.Tensor) -> torch.Tensor:
-        """ Take in an image batch and return the class 
-        for each image. """
-        _, predicted = torch.max(self.model(x).data, 1)
-        return predicted
+        return model

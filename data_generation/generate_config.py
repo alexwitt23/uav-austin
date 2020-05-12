@@ -49,7 +49,7 @@ CLF_TYPES = ["background", "target"]
 TARGET_COLORS = [
     "white",
     "black",
-    #"gray",
+    "gray",
     "red",
     "blue",
     "green",
@@ -61,7 +61,7 @@ TARGET_COLORS = [
 ALPHA_COLORS = [
     "white",
     "black",
-    #"gray",
+    "gray",
     "red",
     "blue",
     "green",
@@ -73,7 +73,7 @@ ALPHA_COLORS = [
 COLORS = {
     "white": [(240, 240, 240)],
     "black": [(5, 5, 5)],
-    #"gray": [(128, 128, 128)],
+    "gray": [(128, 128, 128)],
     "red": [(188, 60, 60), (255, 80, 80), (255, 0, 0), (154, 0, 0)],
     "blue": [(0, 0, 255), (0, 0, 135)],
     "green": [(64, 115, 64), (148, 255, 148), (0, 255, 0), (0, 128, 4)],
@@ -125,3 +125,12 @@ PRECLF_SIZE = (
 DELETE_ON_CONVERT = generate_config.get("delete_on_convert", False)
 IMAGE_EXT = generate_config.get("img_ext", ".png")
 IMAGE_EXT = f".{IMAGE_EXT.replace('', '')}"
+
+
+TARGET_COMBINATIONS = [
+    SHAPE_TYPES,
+    TARGET_COLORS,
+    ALPHAS,
+    ALPHA_COLORS,
+    [angle for angle in range(0, 360, 45)],
+]
