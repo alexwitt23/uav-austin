@@ -32,6 +32,15 @@ def detection_augmentations(height: int, width: int) -> albumentations.Compose:
         ),
     )
 
+def feature_extraction_augmentations(height: int, width: int) -> albumentations.Compose:
+    return albumentations.Compose(
+        [
+            albumentations.Resize(height=height, width=width),
+            albumentations.Rotate(5),
+            albumentations.RandomBrightnessContrast(0.05, 0.05),
+            albumentations.Normalize(),
+        ]
+    )
 
 class ClfDataset(torch.utils.data.Dataset):
     def __init__(self, data_dir: pathlib.Path, img_ext: str = ".png"):
@@ -109,7 +118,7 @@ class TargetDataset(torch.utils.data.Dataset):
 
         self.len = len(self.images)
         self.classes = classes
-        self.transform = classification_augmentations(224, 244)
+        self.transform = feature_extraction_augmentations(100, 100)
 
     def __len__(self) -> int:
         return self.len
