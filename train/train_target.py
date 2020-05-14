@@ -7,6 +7,7 @@ import pathlib
 import random 
 
 import torch
+from sklearn import metrics 
 
 from core import target_typer
 from data_generation import generate_config as config
@@ -25,6 +26,7 @@ def train(
     loss_fn = torch.nn.TripletMarginLoss(_TRIPLET_MARGIN)
     optim = torch.optim.SGD(model.parameters(), lr=1e-3)
     for epoch in range(20):
+        
         for idx, (anchor, positive, negative) in enumerate(train_loader):
 
             optim.zero_grad()
@@ -45,7 +47,7 @@ def train(
             
             loss.backward()
             optim.step()
-
+        
         accuracy = eval(model, eval_loader)
         print(f"Eval Accuracy: {accuracy}.")
 
@@ -55,7 +57,7 @@ def train(
 def eval(model: torch.nn.Module, loader: torch.utils.data.DataLoader):
     """ Judge the model's % accuracy based on how many times the anchor and
     positive are within the margin of each other. """
-
+    num_right, total_num = 0, 0
     with torch.no_grad():
         for idx, (anchor, positive, negative) in enumerate(loader):
 
@@ -68,11 +70,11 @@ def eval(model: torch.nn.Module, loader: torch.utils.data.DataLoader):
             out2 = model(positive)
             out3 = model(negative)
 
-            pos_dist = sk_pairwise.paired_distances(out1.cpu(), out2.cpu())
-            neg_dist = sk_pairwise.paired_distances(out1.cpu(), out3.cpu())
+            pos_dist = metrics.pairwise.paired_distances(out1.cpu(), out2.cpu())
+            neg_dist = metrics.pairwise.paired_distances(out1.cpu(), out3.cpu())
 
             # Accuracy metric based loss's margin distance
-            num_right += (pos_dist + margin <= neg_dist).sum().item()
+            num_right += (pos_dist + _TRIPLET_MARGIN <= neg_dist).sum().item()
             total_num += pos_dist.shape[0]
             
         return num_right / total_num
@@ -100,25 +102,25 @@ if __name__ == "__main__":
     }
 
     dataset = datasets.TargetDataset(
-        pathlib.Path("data_generation/data/combinations_train/images"),
+        pathlib.Path("data_generation/data/combinations_train"),
         img_ext=config.IMAGE_EXT,
         img_width=90,
         img_height=90,
         classes=classes,
     )
     train_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=65, pin_memory=True, shuffle=True
+        dataset, batch_size=500, pin_memory=True, shuffle=True, num_workers=4
     )
 
     dataset = datasets.TargetDataset(
-        pathlib.Path("data_generation/data/combinations_val/images"),
+        pathlib.Path("data_generation/data/combinations_val"),
         img_ext=config.IMAGE_EXT,
         img_width=90,
         img_height=90,
         classes=classes,
     )
     eval_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=65, pin_memory=True, shuffle=True
+        dataset, batch_size=500, pin_memory=True, shuffle=True, num_workers=4
     )
 
     train(model, train_loader, eval_loader)

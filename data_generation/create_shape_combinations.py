@@ -35,12 +35,12 @@ COLORS = config.COLORS
 CLASSES = config.OD_CLASSES
 ALPHAS = config.ALPHAS
 
-_NUM_COMBINATIONS = 4000
+_NUM_COMBINATIONS = 20000
 
 
-def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
+def generate_all_images(gen_type: str, num_gen: int, offset: int = 0) -> None:
     """ Generate all combinations of shape, shape color, alpha, and alpha color. """
-    images_dir = config.DATA_DIR / gen_type / "images"
+    images_dir = config.DATA_DIR / gen_type 
     config.DATA_DIR.mkdir(exist_ok=True, parents=True)
     images_dir.mkdir(exist_ok=True, parents=True)
 
@@ -127,7 +127,7 @@ def generate_all_images(gen_type: str, num_gen: int, offset=0) -> None:
 def generate_single_example(data: zip) -> None:
     """Creates a single full image"""
     (number, background, crop_x, crop_y, shape_params, gen_type,) = data
-    data_path = config.DATA_DIR / gen_type / "images"
+    data_path = config.DATA_DIR / gen_type 
 
     background = background.copy()
     background = background.crop(
@@ -333,7 +333,7 @@ def rotate_shape(image, shape, angle):
 if __name__ == "__main__":
     # Pull the assets if not present locally.
     pull_assets.pull_all()
-    generate_all_images("combinataions_train", config.NUM_IMAGES, config.NUM_OFFSET)
+    generate_all_images("combinations_train", config.NUM_IMAGES, config.NUM_OFFSET)
     generate_all_images(
-        "combinataions_val", config.NUM_VAL_IMAGES, config.NUM_VAL_OFFSET
+        "combinations_val", config.NUM_VAL_IMAGES, config.NUM_VAL_OFFSET
     )

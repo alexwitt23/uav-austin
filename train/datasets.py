@@ -38,6 +38,7 @@ def feature_extraction_augmentations(height: int, width: int) -> albumentations.
             albumentations.Resize(height=height, width=width),
             albumentations.Rotate(5),
             albumentations.RandomBrightnessContrast(0.05, 0.05),
+            albumentations.GaussianBlur(blur_limit=4),
             albumentations.Normalize(),
         ]
     )

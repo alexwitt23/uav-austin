@@ -22,7 +22,7 @@ from PIL import (
 )
 
 from data_generation import generate_config as config
-from utils import pull_assets
+from core import pull_assets
 
 # Get constants from config
 NUM_GEN = int(config.NUM_IMAGES)
