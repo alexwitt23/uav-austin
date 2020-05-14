@@ -32,6 +32,7 @@ def detection_augmentations(height: int, width: int) -> albumentations.Compose:
         ),
     )
 
+
 def feature_extraction_augmentations(height: int, width: int) -> albumentations.Compose:
     return albumentations.Compose(
         [
@@ -41,6 +42,7 @@ def feature_extraction_augmentations(height: int, width: int) -> albumentations.
             albumentations.Normalize(),
         ]
     )
+
 
 class ClfDataset(torch.utils.data.Dataset):
     def __init__(self, data_dir: pathlib.Path, img_ext: str = ".png"):

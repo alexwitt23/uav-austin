@@ -404,6 +404,10 @@ class EfficientNet(torch.nn.Module):
         del self.pre_classification
         del self.model_head
 
+    def final_features(self, x: torch.Tensor) -> torch.Tensor:
+        x = torch.nn.functional._adaptive_max_pool2d(self.forward_pyramids(x)[-1], 1)
+        return torch.flatten(x, 1)
+
 
 def init(m: torch.nn.Module):
 

@@ -20,7 +20,8 @@ import numpy as np
 from train import datasets
 from train.train_utils import model_saver
 from data_generation import generate_config
-from third_party.models import losses, detector
+from third_party.models import losses
+from core import detector
 
 _LOG_INTERVAL = 10
 _IMG_WIDTH, _IMG_HEIGHT = generate_config.DETECTOR_SIZE
@@ -98,7 +99,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         all_losses = []
         clf_losses = []
         reg_losses = []
-
+        """
         for idx, (images, boxes, classes, _) in enumerate(train_loader):
 
             optimizer.zero_grad()
@@ -137,7 +138,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                     f"clf loss {sum(clf_losses) / len(clf_losses):.5}, "
                     f"reg loss {sum(reg_losses) / len(reg_losses):.5}"
                 )
-
+        """
         # Call evaluation function
         det_model.eval()
         eval_acc = eval(

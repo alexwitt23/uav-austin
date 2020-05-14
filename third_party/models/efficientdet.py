@@ -37,6 +37,7 @@ class EfficientDet(torch.nn.Module):
         levels: List[int] = [3, 4, 5, 6, 7],
         use_cuda: bool = False,
         num_levels_extracted: int = 3,
+        num_detections_per_image: int = 3,
     ) -> None:
         """ 
         Args:
@@ -45,6 +46,7 @@ class EfficientDet(torch.nn.Module):
         super().__init__()
         self.num_pyramids = len(levels)
         self.num_levels_extracted = num_levels_extracted
+        self.num_detections_per_image = num_detections_per_image
 
         self.backbone = efficientnet.EfficientNet(
             _MODEL_SCALES[backbone][1], num_classes=num_classes
@@ -89,6 +91,7 @@ class EfficientDet(torch.nn.Module):
             num_classes=num_classes,
             anchors=self.anchors,
             regressor=regression.Regressor(),
+            max_detections_per_image=num_detections_per_image,
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:

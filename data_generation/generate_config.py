@@ -4,8 +4,7 @@ import pathlib
 import yaml
 
 
-with pathlib.Path("data_generation/config.yaml").open("r") as stream:
-    config = yaml.safe_load(stream)
+config = yaml.safe_load(pathlib.Path("data_generation/config.yaml").read_text())
 
 generate_config = config["generate"]
 BACKGROUNDS_VERSIONS = generate_config.get("backgrounds_versions", [])
