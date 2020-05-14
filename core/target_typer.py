@@ -10,20 +10,18 @@ import torch
 import torchvision
 
 from core import pull_assets
-from third_party.models import resnet
+from third_party.models import resnet, efficientnet
 
 
 class TargetTyper(torch.nn.Module):
     def __init__(
         self,
-        num_classes: int,
         version: str = None,
         backbone: str = None,
         use_cuda: bool = False,
         half_precision: bool = False,
     ) -> None:
         super().__init__()
-        self.num_classes = num_classes
         self.use_cuda = use_cuda
         self.half_precision = half_precision
 
@@ -57,12 +55,10 @@ class TargetTyper(torch.nn.Module):
 
     def _load_backbone(self, backbone: str) -> torch.nn.Module:
         """ Load the supplied backbone. """
-        if backbone == "efficientdet-b0":
-            model = efficientnet.EfficientNet(
-                backbone=backbone, num_classes=self.num_classes
-            )
+        if backbone == "efficientnet-b0":
+            model = efficientnet.EfficientNet(backbone=backbone, num_classes=1)
         elif backbone == "resnet18":
-            model = resnet.resnet18(num_classes=self.num_classes)
+            model = resnet.resnet18(num_classes=1)
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
 

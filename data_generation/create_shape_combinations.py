@@ -35,12 +35,12 @@ COLORS = config.COLORS
 CLASSES = config.OD_CLASSES
 ALPHAS = config.ALPHAS
 
-_NUM_COMBINATIONS = 20000
+_NUM_COMBINATIONS = 1000
 
 
 def generate_all_images(gen_type: str, num_gen: int, offset: int = 0) -> None:
     """ Generate all combinations of shape, shape color, alpha, and alpha color. """
-    images_dir = config.DATA_DIR / gen_type 
+    images_dir = config.DATA_DIR / gen_type
     config.DATA_DIR.mkdir(exist_ok=True, parents=True)
     images_dir.mkdir(exist_ok=True, parents=True)
 
@@ -60,6 +60,12 @@ def generate_all_images(gen_type: str, num_gen: int, offset: int = 0) -> None:
     ]
     combinations = list(itertools.product(*a))
     random.shuffle(combinations)
+
+    # Assume that 0 combinations means all
+    _NUM_COMBINATIONS = 1000
+    if _NUM_COMBINATIONS == 0:
+        _NUM_COMBINATIONS = len(combinations)
+
     combinations = combinations[:_NUM_COMBINATIONS]
     num_gen = len(combinations)
 
@@ -127,7 +133,7 @@ def generate_all_images(gen_type: str, num_gen: int, offset: int = 0) -> None:
 def generate_single_example(data: zip) -> None:
     """Creates a single full image"""
     (number, background, crop_x, crop_y, shape_params, gen_type,) = data
-    data_path = config.DATA_DIR / gen_type 
+    data_path = config.DATA_DIR / gen_type
 
     background = background.copy()
     background = background.crop(

@@ -92,9 +92,9 @@ class PostProcessor:
         anchors: anchors.AnchorGenerator,
         regressor: regression.Regressor,
         score_threshold: float = 0.1,
-        max_detections_per_image: int = 100,
+        max_detections_per_image: int = 3,
         nms_threshold: float = 0.5,
-        topk_candidates: int = 100,
+        topk_candidates: int = 3,
     ):
         self.num_classes = num_classes
         self.regressor = regressor
@@ -183,7 +183,10 @@ class PostProcessor:
             cat(x) for x in [boxes_all, scores_all, class_idxs_all]
         ]
         keep = batched_nms(
-            boxes_all.cpu(), scores_all.cpu(), class_idxs_all.cpu(), self.nms_threshold
+            boxes_all.cpu().float(),
+            scores_all.cpu().float(),
+            class_idxs_all.cpu(),
+            self.nms_threshold,
         )
         keep = keep[: self.max_detections_per_image]
 

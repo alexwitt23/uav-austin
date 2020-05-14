@@ -23,6 +23,7 @@ class Detector(torch.nn.Module):
         backbone: str = None,
         use_cuda: bool = True,
         half_precision: bool = False,
+        num_detections_per_image: int = 3,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -30,6 +31,8 @@ class Detector(torch.nn.Module):
         self.img_height = img_height
         self.use_cuda = use_cuda
         self.half_precision = half_precision
+        self.num_detections_per_image = num_detections_per_image
+
         if backbone is None and version is None:
             raise ValueError("Must supply either model version or backbone to load")
 
@@ -51,9 +54,8 @@ class Detector(torch.nn.Module):
 
         self.model.eval()
 
-        if self.use_cuda and self.half_precision:
+        if self.use_cuda:
             self.model.cuda()
-            self.model.half()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
@@ -62,15 +64,24 @@ class Detector(torch.nn.Module):
         """ Load the supplied backbone. """
         if backbone == "efficientdet-b0":
             model = efficientdet.EfficientDet(
-                backbone=backbone, num_classes=self.num_classes, use_cuda=self.use_cuda
+                backbone=backbone,
+                num_classes=self.num_classes,
+                use_cuda=self.use_cuda,
+                num_detections_per_image=self.num_detections_per_image,
             )
         elif backbone == "resnet18":
             model = efficientdet.EfficientDet(
-                backbone=backbone, num_classes=self.num_classes, use_cuda=self.use_cuda
+                backbone=backbone,
+                num_classes=self.num_classes,
+                use_cuda=self.use_cuda,
+                num_detections_per_image=self.num_detections_per_image,
             )
         elif backbone == "resnet34":
             model = efficientdet.EfficientDet(
-                backbone=backbone, num_classes=self.num_classes, use_cuda=self.use_cuda
+                backbone=backbone,
+                num_classes=self.num_classes,
+                use_cuda=self.use_cuda,
+                num_detections_per_image=self.num_detections_per_image,
             )
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")

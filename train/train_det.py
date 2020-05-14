@@ -20,7 +20,8 @@ import numpy as np
 from train import datasets
 from train.train_utils import model_saver
 from data_generation import generate_config
-from third_party.models import losses, detector
+from third_party.models import losses
+from core import detector
 
 _LOG_INTERVAL = 10
 _IMG_WIDTH, _IMG_HEIGHT = generate_config.DETECTOR_SIZE

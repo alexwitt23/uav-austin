@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package target_features;
+
+message ShapeCombinations {
+
+    message TargetFeatures {
+        string name = 1;
+        repeated float feature = 2;
+    }
+
+    repeated TargetFeatures targets = 1;
+}
