@@ -82,7 +82,7 @@ class BiFPN(torch.nn.Module):
             ]
             self.downsample_convs = torch.nn.Sequential(*self.downsample_convs)
 
-    def __call__(self, feature_maps: List[torch.Tensor]):
+    def __call__(self, feature_maps: List[torch.Tensor]) -> List[torch.Tensor]:
         """ First apply the lateral convolutions to size all the incoming 
         feature layers to the same size. Then pass through the BiFPN blocks.
 

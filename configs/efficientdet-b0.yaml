@@ -9,8 +9,8 @@ training:
     weight_decay: 1e-5
   epochs: 50
   gpu: True
-  train_batch_size: 15
+  train_batch_size: 10
   eval_batch_size: 64
-  save_best: true
+  save_best: True
   
   

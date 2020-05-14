@@ -21,7 +21,7 @@ class Detector(torch.nn.Module):
         num_classes: int,
         version: str = None,
         backbone: str = None,
-        use_cuda: bool = False,
+        use_cuda: bool = True,
         half_precision: bool = False,
         num_detections_per_image: int = 3,
     ) -> None:
@@ -54,9 +54,8 @@ class Detector(torch.nn.Module):
 
         self.model.eval()
 
-        if self.use_cuda and self.half_precision:
+        if self.use_cuda:
             self.model.cuda()
-            self.model.half()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)

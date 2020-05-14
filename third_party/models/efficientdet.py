@@ -10,6 +10,7 @@ from third_party.models import (
     regression,
     anchors,
     resnet,
+    fpn,
 )
 
 _MODEL_SCALES = {
@@ -35,7 +36,7 @@ class EfficientDet(torch.nn.Module):
         backbone: str = "efficientdet-b0",
         anchors_per_cell: int = 4,
         levels: List[int] = [3, 4, 5, 6, 7],
-        use_cuda: bool = False,
+        use_cuda: bool = True,
         num_levels_extracted: int = 3,
         num_detections_per_image: int = 3,
     ) -> None:
@@ -58,6 +59,7 @@ class EfficientDet(torch.nn.Module):
         params = _MODEL_SCALES["efficientdet-b0"]
 
         # Create the BiFPN with the supplied parameter options.
+        """
         self.fpn = BiFPN.BiFPN(
             in_channels=features,
             out_channels=params[2],
@@ -65,6 +67,8 @@ class EfficientDet(torch.nn.Module):
             num_levels_in=3,
             bifpn_height=5,
         )
+        """
+        self.fpn = fpn.FPN(in_channels=features, out_channels=params[2], num_levels=5,)
         self.anchors = anchors.AnchorGenerator(
             img_height=params[0],
             img_width=params[0],
