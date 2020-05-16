@@ -1,6 +1,5 @@
-""" A classifier model which wraps around a backbone.
-This allows for easy interchangeability during experimentation
-and a reliable way to load saved models. """
+""" A classifier model which wraps around a backbone. This setup allows for easy 
+interchangeability during experimentation and a reliable way to load saved models. """
 
 import pathlib
 import math
@@ -24,6 +23,17 @@ class Classifier(torch.nn.Module):
         use_cuda: bool = False,
         half_precision: bool = False,
     ) -> None:
+        """
+        Args:
+            img_width: The width of the input images.
+            img_height: The height of the input images.
+            num_classes: The number of classes to predict. 
+            version: The version of the model to download from bintray.
+            backbone: A string designating which model to load.
+            use_cuda: Wether this model is going to be used on  gpu.
+            half_precision: Wether to use half precision for inference. For now
+                half_precision doesn't work well with training. Maybe in PyTorch 1.6.0.
+        """
         super().__init__()
         self.num_classes = num_classes
         self.use_cuda = use_cuda

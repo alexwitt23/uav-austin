@@ -1,4 +1,4 @@
-""" """
+""" A class to hold the information on a model's anchor boxes. """
 
 from typing import List, Tuple
 
@@ -15,7 +15,15 @@ class AnchorGenerator(torch.nn.Module):
         anchor_scales: List[float],
         use_cuda: bool = False,
     ) -> None:
-        """ Anchor initializer.
+        """ This class will hold the models anchor information. Important
+        items are the anchors per feature map and the entire tensor of anchors.
+
+        Args:
+            img_height: Height of the image for calculating bbox grids.
+            img_width: Width of the image for claculating bbox grids.
+            pyramid_levels: Which levels are part of the feature map.
+            anchor_scales: The scales by which the height and width are multiplied.
+            use_cuda: If this model is being run on gpu.
 
         Usage:
         >>> anchor_gen = AnchorGenerator(512, 512, [3, 4, 5, 6, 7], [0.5, 1, 2])
@@ -61,8 +69,6 @@ class AnchorGenerator(torch.nn.Module):
 
         self.anchors_over_all_feature_maps = self._grid_anchors(self.grid_sizes)
         self.all_anchors = torch.cat(self.anchors_over_all_feature_maps)
-        if use_cuda:
-            self.all_anchors = self.all_anchors.cuda()
 
     def _generate_cell_anchors(
         self,

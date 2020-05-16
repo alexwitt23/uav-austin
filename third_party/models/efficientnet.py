@@ -232,16 +232,17 @@ class eSE(torch.nn.Module):
     of channels to preserving spatial information. We also use a piece-wise linear 
     approximation (hard-sigmoid) here to reduce the transcendental computation load 
     of the normal sigmoid. """
+
     def __init__(self, expanded_channels: int) -> None:
         super().__init__()
         self.layers = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),  # 1 x 1 x in_channels
             torch.nn.Conv2d(
                 in_channels=expanded_channels,
-                out_channels=expanded_channels, 
+                out_channels=expanded_channels,
                 kernel_size=1,
-                stride=1
-            )
+                stride=1,
+            ),
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
@@ -297,9 +298,7 @@ class MBConvBlock(torch.nn.Module):
             DepthwiseConv(
                 channels=expanded_channels, kernel_size=kernel_size, stride=stride
             ),
-            eSE(
-                expanded_channels=expanded_channels
-            ),
+            eSE(expanded_channels=expanded_channels),
             torch.nn.Conv2d(
                 in_channels=expanded_channels,
                 out_channels=out_channels,

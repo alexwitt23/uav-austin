@@ -14,9 +14,7 @@ class DepthwiseSeparable(torch.nn.Module):
             torch.nn.Conv2d(
                 in_channels, in_channels, kernel_size=3, padding=1, groups=in_channels
             ),
-            torch.nn.Conv2d(
-                in_channels, out_channels, kernel_size=1, bias=True
-            ),
+            torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=True),
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
@@ -36,7 +34,10 @@ class FPN(torch.nn.Module):
         # Construct the lateral convolutions to adapt the incoming feature maps
         # to the same channel depth.
         self.lateral_convs = torch.nn.ModuleList(
-            [DepthwiseSeparable(channels, out_channels) for channels in reversed(in_channels)]
+            [
+                DepthwiseSeparable(channels, out_channels)
+                for channels in reversed(in_channels)
+            ]
         )
 
         # Construct a convolution per level.
@@ -52,7 +53,7 @@ class FPN(torch.nn.Module):
         # apply lateral convolution, add with the previous layer (if there is one), and
         # then apply a convolution.
         for idx, level in enumerate(reversed(feature_maps)):
-            # Apply the lateral convolution 
+            # Apply the lateral convolution
             feature_maps[-idx - 1] = self.lateral_convs[idx](feature_maps[-idx - 1])
             # Add the previous layer upsampled, if there is one.
             if idx > 0:

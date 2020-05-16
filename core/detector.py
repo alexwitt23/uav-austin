@@ -3,7 +3,6 @@ backbone, fpn, and RetinaNet head.This allows for easy
 interchangeability during experimentation and a reliable way 
 to load saved models. """
 
-import pathlib
 import yaml
 
 import torch

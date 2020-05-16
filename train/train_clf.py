@@ -81,6 +81,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                 )
 
         # Call evaluation function
+        opt.swap_swa_sgd()
         clf_model.eval()
         eval_acc = eval(
             clf_model, eval_loader, use_cuda, save_best, highest_score, save_dir
@@ -92,6 +93,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5}, "
             f"Eval accuracy: {eval_acc:.4}"
         )
+    v
 
 
 def eval(

@@ -1,27 +1,21 @@
 #!/usr/bin/env python3
-"""Contains logic for finding targets in blobs."""
+""" Contains logic for finding targets in images. """
 
 import argparse
 import pathlib
-import os
 import time
+import json
 from typing import List, Tuple, Generator
-import itertools
 
 import cv2
 import numpy as np
-import PIL.Image
 import torch
 from sklearn import metrics
 
 from core import classifier, detector
-from inference import preprocessing, types, color_cube
+from inference import types
 from data_generation import generate_config as config
-
-TARGET_COMBINATIONS = {
-    "_".join([str(item) for item in name]): idx
-    for idx, name in enumerate(set(itertools.product(*config.TARGET_COMBINATIONS)))
-}
+from third_party.models import postprocess
 
 
 def create_batches(
@@ -30,7 +24,17 @@ def create_batches(
     overlap: int,
     batch_size: int,
 ) -> Generator[types.BBox, None, None]:
-    """ Creates batches of images based on the supplied params. """
+    """ Creates batches of images based on the supplied params. The whole image
+    is tiled first, the batches are generated. 
+    Args:
+        image: The opencv opened image.
+        tile_size: The height, width of the tiles to create.
+        overlap: The amount of overlap between tiles.
+        batch_size: The number of images to have per batch.
+    Returns:
+        Yields the image batch and the top left coordinate of the tile in the
+        space of the original image.
+    """
     tiles = []
     coords = []
     for x in range(0, image.shape[1], tile_size[1] - overlap):
@@ -51,48 +55,52 @@ def create_batches(
 
 
 def find_targets(
-    clf_model: torch.nn.Module, det_model: torch.nn.Module, images: List[pathlib.Path],
-):
+    clf_model: torch.nn.Module,
+    det_model: torch.nn.Module,
+    images: List[pathlib.Path],
+    save_jsons: bool = False,
+    visualization_dir: pathlib.Path = None,
+) -> None:
     retval = []
     for image_path in images:
         image = cv2.imread(str(image_path))
         assert image is not None, f"Could not read {image_path}."
-        for _ in range(120):
-            start = time.perf_counter()
-            # Get the image slices.
-            for tiles, coords in create_batches(
-                image, config.CROP_SIZE, config.CROP_OVERLAP, 100
-            ):
-                if torch.cuda.is_available():
-                    tiles = tiles.cuda().half()
+        start = time.perf_counter()
+        # Get the image slices.
+        for tiles, coords in create_batches(
+            image, config.CROP_SIZE, config.CROP_OVERLAP, 100
+        ):
+            if torch.cuda.is_available():
+                tiles = tiles.cuda()
 
-                # Resize the slices for classification.
-                tiles = torch.nn.functional.interpolate(tiles, config.PRECLF_SIZE)
-                # Call the pre-clf to find the target tiles.
-                preds = clf_model.classify(tiles)
-                # Get the ids of tiles that contain targets
-                target_ids = torch.where(preds == 0)[0].tolist()
+            # Resize the slices for classification.
+            tiles = torch.nn.functional.interpolate(tiles, config.PRECLF_SIZE)
+            # Call the pre-clf to find the target tiles.
+            preds = clf_model.classify(tiles)
+            # Get the ids of tiles that contain targets
+            target_ids = torch.where(preds == 0)[0].tolist()
 
-                if target_ids:
-                    # Pass these target-containing tiles to the detector
-                    det_tiles = torch.nn.functional.interpolate(
-                        tiles[target_ids], config.DETECTOR_SIZE
-                    )
-                    boxes = det_model(det_tiles)
-                    retval.extend(zip(coords, boxes))
-                else:
-                    retval.extend(zip(coords, []))
+            if target_ids:
+                # Pass these target-containing tiles to the detector
+                det_tiles = torch.nn.functional.interpolate(
+                    tiles[target_ids], config.DETECTOR_SIZE
+                )
+                boxes = det_model(det_tiles)
+                retval.extend(zip(coords, boxes))
+            else:
+                retval.extend(zip(coords, []))
 
-            globalize_boxes(retval)
+        targets = globalize_boxes(retval)
 
-            print(time.perf_counter() - start)
+        print(time.perf_counter() - start)
+
+        if visualization_dir is not None:
+            visualize_image(image_path.name, image, visualization_dir, targets)
 
 
-def globalize_boxes(results):
+def globalize_boxes(results: List[postprocess.BoundingBox]) -> List[types.Target]:
     final_targets = []
     for coords, bboxes in results:
-        if not bboxes:
-            continue
         for box in bboxes:
             relative_coords = box.box.tolist()
             relative_coords += list(2 * coords)
@@ -107,6 +115,42 @@ def globalize_boxes(results):
             )
 
     return final_targets
+
+
+def visualize_image(
+    image_name: str,
+    image: np.ndarray,
+    visualization_dir: pathlib.Path,
+    targets: List[types.Target],
+) -> None:
+    """ Function used to draw boxes and information onto image for 
+    visualizing the output of inference. """
+    for target in targets:
+        top_left = (target.x, target.y)
+        bottom_right = (target.x + target.width, target.y + target.height)
+        image = cv2.rectangle(image, top_left, bottom_right, (255, 255, 255), 3)
+
+    cv2.imwrite(str(visualization_dir / image_name), image)
+
+
+def save_target_meta(filename_meta, filename_image, target):
+    """ Save target metadata to a file. """
+    with open(filename_meta, "w") as f:
+        meta = {
+            "x": target.x,
+            "y": target.y,
+            "width": target.width,
+            "height": target.height,
+            "orientation": target.orientation,
+            "shape": target.shape.name.lower(),
+            "background_color": target.background_color.name.lower(),
+            "alphanumeric": target.alphanumeric,
+            "alphanumeric_color": target.alphanumeric_color.name.lower(),
+            "image": filename_image,
+            "confidence": target.confidence,
+        }
+
+        json.dump(meta, f, indent=2)
 
 
 if __name__ == "__main__":
@@ -132,12 +176,6 @@ if __name__ == "__main__":
         help="Needed when an image directory is supplied.",
     )
     parser.add_argument(
-        "--visualization_dir",
-        required=False,
-        type=pathlib.Path,
-        help="Directory to save visualizations to.",
-    )
-    parser.add_argument(
         "--clf_version",
         required=False,
         type=str,
@@ -150,6 +188,12 @@ if __name__ == "__main__":
         type=str,
         default="dev",
         help="Version of the detector model to use.",
+    )
+    parser.add_argument(
+        "--visualization_dir",
+        required=False,
+        type=pathlib.Path,
+        help="Optional directory to save visualization to.",
     )
     args = parser.parse_args()
 
@@ -179,4 +223,9 @@ if __name__ == "__main__":
         assert args.image_extension.startswith(".")
         imgs = args.image_path.expanduser().glob(f"*{args.image_extension}")
 
-    find_targets(clf_model, det_model, imgs)
+    viz_dir = None
+    if args.visualization_dir is not None:
+        viz_dir = args.visualization_dir.expanduser()
+        viz_dir.mkdir(exist_ok=True, parents=True)
+
+    find_targets(clf_model, det_model, imgs, visualization_dir=viz_dir)

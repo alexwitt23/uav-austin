@@ -7,13 +7,10 @@ from PIL import Image
 
 @unique
 class Color(Enum):
-    """Contains colors for the AUVSI SUAS Interop Server.
-
+    """ Contains colors for the AUVSI SUAS Interop Server.
     These colors can be used for both the background color and the
-    alphanumeric color.
-
-    Note that Color.NONE can be used if a color cannot be identified.
-    """
+    alphanumeric color. NOTE: Color.NONE can be used if a color
+    cannot be identified. """
 
     NONE = 0
     WHITE = 1
@@ -30,11 +27,9 @@ class Color(Enum):
 
 @unique
 class Shape(Enum):
-    """Contains target shapes for the AUVSI SUAS Interop Server.
-
-    Note that Shape.NAS (not-a-shape) can be used if a shape cannot
-    be identified.
-    """
+    """ Contains target shapes for the AUVSI SUAS Interop Server.
+    NOTE: Shape.NAS (not-a-shape) can be used if a shape cannot
+    be identified. """
 
     NAS = 0
     CIRCLE = 1
