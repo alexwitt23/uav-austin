@@ -199,10 +199,11 @@ def add_shapes(
         x = shape_param[-2]
         y = shape_param[-1]
         shape_img = shape_imgs[i]
-        shape_img = shape_img.filter(ImageFilter.GaussianBlur(blur_radius))
+        shape_img = shape_img.filter(ImageFilter.GaussianBlur(1))
         x1, y1, x2, y2 = shape_img.getbbox()
         bg_at_shape = background.crop((x1 + x, y1 + y, x2 + x, y2 + y))
         bg_at_shape.paste(shape_img, (0, 0), shape_img)
+        bg_at_shape = bg_at_shape.filter(ImageFilter.SMOOTH_MORE)
         background.paste(bg_at_shape, (x, y))
 
         im_w, im_h = background.size

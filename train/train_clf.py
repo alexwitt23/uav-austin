@@ -193,8 +193,7 @@ if __name__ == "__main__":
     assert config_path.is_file(), f"Can't find {config_path}."
 
     # Load the model config
-    with config_path.open("r") as f:
-        config = yaml.safe_load(f)
+    config = yaml.safe_load(config_path.read_text())
 
     model_cfg = config["model"]
     train_cfg = config["training"]
