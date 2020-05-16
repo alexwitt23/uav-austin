@@ -1,6 +1,7 @@
 model:
   type: "detection"
   backbone: "efficientdet-b0"
+  fpn: "retinanet"
 training:
   optimizer: 
     type: "SGD"
