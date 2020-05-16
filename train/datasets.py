@@ -101,6 +101,7 @@ class DetDataset(torch.utils.data.Dataset):
         image = torch.Tensor(augmented["image"]).permute(2, 0, 1)
         # Image coordinates
         boxes = boxes * torch.Tensor(2 * list(image.shape[1:]))
+
         return image, boxes, torch.Tensor(augmented["category_id"]), labels["image_id"]
 
     def __len__(self) -> int:

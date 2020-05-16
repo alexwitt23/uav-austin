@@ -4,13 +4,12 @@ model:
 training:
   optimizer: 
     type: "SGD"
-    lr: 1e-3
+    lr: 1e-2
     momentum: 0.9
     weight_decay: 1e-5
   epochs: 50
   gpu: True
-  train_batch_size: 10
+  train_batch_size: 14
   eval_batch_size: 64
   save_best: True
-  
   

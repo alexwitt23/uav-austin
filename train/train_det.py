@@ -34,12 +34,14 @@ def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> dict:
     detections: List[dict] = []
     for image_boxes, image_id in zip(bboxes, image_ids):
         for bbox in image_boxes:
-            box = bbox.box.int().tolist()
+            box = bbox.box.int()
+            # XYXY -> XYWH
+            box[2:] -= box[:2]
             detections.append(
                 {
                     "image_id": image_id.item(),
                     "category_id": bbox.class_id,
-                    "bbox": [box[0], box[1], box[2] - box[0], box[3] - box[1],],
+                    "bbox": box.tolist(),
                     "score": bbox.confidence,
                 }
             )
@@ -99,7 +101,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         all_losses = []
         clf_losses = []
         reg_losses = []
-
+        
         for idx, (images, boxes, classes, _) in enumerate(train_loader):
 
             optimizer.zero_grad()
@@ -138,7 +140,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                     f"clf loss {sum(clf_losses) / len(clf_losses):.5}, "
                     f"reg loss {sum(reg_losses) / len(reg_losses):.5}"
                 )
-
+        
         # Call evaluation function
         det_model.eval()
         eval_acc = eval(
@@ -173,7 +175,6 @@ def eval(
                 images = images.cuda()
             total_num += images.shape[0]
             detections = det_model(images)
-            print(detections)
             detections_dict.extend(detections_to_dict(detections, image_ids))
 
         print(

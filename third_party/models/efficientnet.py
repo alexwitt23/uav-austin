@@ -226,6 +226,35 @@ class SqueezeExcitation(torch.nn.Module):
         return x * self.layers(x)
 
 
+class eSE(torch.nn.Module):
+    """ This is a variant of the squeeze-excitation layer proposed in 
+    https://arxiv.org/pdf/1911.06667.pdf (VoVNet2). This layer removes the squeezing 
+    of channels to preserving spatial information. We also use a piece-wise linear 
+    approximation (hard-sigmoid) here to reduce the transcendental computation load 
+    of the normal sigmoid. """
+    def __init__(self, expanded_channels: int) -> None:
+        super().__init__()
+        self.layers = torch.nn.Sequential(
+            torch.nn.AdaptiveAvgPool2d(1),  # 1 x 1 x in_channels
+            torch.nn.Conv2d(
+                in_channels=expanded_channels,
+                out_channels=expanded_channels, 
+                kernel_size=1,
+                stride=1
+            )
+        )
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        """ Apply the squeezing and excitation, then elementwise multiplacation of 
+        the excitation 1 x 1 x out_channels tensor. """
+        out = self.layers(x)
+        # Apply hard sigmoid activation. ReLU6 puts input between [0, 6]. We add
+        # 3 to the output to force the data to have point (0, 0.5).
+        out = torch.nn.functional.relu6(out + 3, inplace=True) / 6
+
+        return x * out
+
+
 class MBConvBlock(torch.nn.Module):
     """ Mobile inverted residual bottleneck layer. """
 
@@ -268,10 +297,8 @@ class MBConvBlock(torch.nn.Module):
             DepthwiseConv(
                 channels=expanded_channels, kernel_size=kernel_size, stride=stride
             ),
-            SqueezeExcitation(
-                expanded_channels=expanded_channels,
-                in_channels=in_channels,
-                se_ratio=se_ratio,
+            eSE(
+                expanded_channels=expanded_channels
             ),
             torch.nn.Conv2d(
                 in_channels=expanded_channels,
