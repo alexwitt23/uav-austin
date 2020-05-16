@@ -8,7 +8,7 @@ training:
     lr: 1e-2
     momentum: 0.9
     weight_decay: 1e-5
-  epochs: 50
+  epochs: 3
   gpu: True
   train_batch_size: 15
   eval_batch_size: 64
