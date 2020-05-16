@@ -320,13 +320,16 @@ class MBConvBlock(torch.nn.Module):
 class EfficientNet(torch.nn.Module):
     """ Entrypoint for creating an effecientnet. """
 
-    def __init__(self, backbone: str, num_classes: int) -> None:
+    def __init__(
+        self, backbone: str, num_classes: int, img_size: Tuple[int, int] = (512, 512)
+    ) -> None:
         """ Instantiant the EffecientNet. 
 
         Args:
             scale_params: (width_coefficient, depth_coefficient, resolution, dropout_rate)
         """
         super().__init__()
+        self.img_size = img_size
         scale_params = _MODEL_SCALES[backbone]
         # Add the first layer, a simple 3x3 filter conv layer.
         out_channels = round_filters(32, scale=scale_params[0])
@@ -413,7 +416,14 @@ class EfficientNet(torch.nn.Module):
         return self.model_head(features)
 
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
-        """ Get the outputs at each level. """
+        """ Get the outputs at each level. 
+        Usage:
+        >>> net = EfficientNet("efficientnet-b0", 2)
+        >>> with torch.no_grad():
+        ...    levels = net.forward_pyramids(torch.randn(1, 3, 512, 512))
+        >>> [level.shape[-1] for level in levels]
+        [256, 128, 64, 32, 16]
+        """
         x1 = self.model_layers[0:2](x)
         x2 = self.model_layers[2](x1)
         x3 = self.model_layers[3](x2)
@@ -423,9 +433,16 @@ class EfficientNet(torch.nn.Module):
 
     def get_pyramid_channels(self) -> List[int]:
         """ Return the number of channels from each pyramid level. We only care 
-        about the output channels of each MBConv block. """
-        # TODO(alex) un-hardcode
-        return [40, 112, 192]
+        about the output channels of each MBConv block. 
+        >>> net = EfficientNet("efficientnet-b0", 2, (1024, 1024))
+        >>> net.get_pyramid_channels()
+        [512, 256, 128, 64, 32]
+        """
+        # TODO(alex) maybe this can be done without a forward pass
+        with torch.no_grad():
+            out = self.forward_pyramids(torch.randn(1, 3, *self.img_size))
+        out = [level.shape[-1] for level in out]
+        return out
 
     def delete_classification_head(self) -> None:
         del self.pre_classification

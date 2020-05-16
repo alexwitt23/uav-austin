@@ -55,9 +55,7 @@ def permute_to_N_HWA_K_and_concat(
 
 # https://github.com/facebookresearch/detectron2/blob/master/detectron2/layers/nms.py
 def batched_nms(boxes, scores, idxs, iou_threshold):
-    """
-    Same as torchvision.ops.boxes.batched_nms, but safer.
-    """
+    """ Same as torchvision.ops.boxes.batched_nms, but safer. """
     assert boxes.shape[-1] == 4
     # TODO may need better strategy.
     # Investigate after having a fully-cuda NMS op.
@@ -76,9 +74,8 @@ def batched_nms(boxes, scores, idxs, iou_threshold):
 
 # https://github.com/facebookresearch/detectron2/blob/master/detectron2/layers/wrappers.py
 def cat(tensors, dim=0):
-    """
-    Efficient version of torch.cat that avoids a copy if there is only a single element in a list
-    """
+    """ Efficient version of torch.cat that avoids a copy if there 
+    is only a single element in a list. """
     assert isinstance(tensors, (list, tuple))
     if len(tensors) == 1:
         return tensors[0]
@@ -89,16 +86,31 @@ class PostProcessor:
     def __init__(
         self,
         num_classes: int,
-        anchors: anchors.AnchorGenerator,
+        anchors_per_level: List[torch.Tensor],
         regressor: regression.Regressor,
         score_threshold: float = 0.1,
         max_detections_per_image: int = 3,
         nms_threshold: float = 0.5,
         topk_candidates: int = 3,
-    ):
+    ) -> None:
+        """ This class will parse the model's class predictions and box
+        regressions. 
+
+        Args:
+            num_classes: The number of classes predicted. 
+            anchors_per_level: The anchors for each feature level.
+            regressor: A class that performs the regression application.
+            score_threshold: The threshold detections must meet.
+            max_detections_per_image: The number of boxes predicted above 
+                confidence.
+            nms_threshold: The non-maximal suppression threshold.
+            topk_candidates: The most confident box predictions _per feature
+                level_. From these, the max_detections_per_image is applied.
+
+        """
         self.num_classes = num_classes
         self.regressor = regressor
-        self.anchors = anchors
+        self.anchors_per_level = anchors_per_level
         self.score_threshold = score_threshold
         self.topk_candidates = topk_candidates
         self.nms_threshold = nms_threshold
@@ -108,7 +120,7 @@ class PostProcessor:
         self,
         box_classifications: List[torch.Tensor],
         box_regressions: List[torch.Tensor],
-    ):
+    ) -> List[List[BoundingBox]]:
         box_classifications = [
             permute_to_N_HWA_K(box_clf, self.num_classes)
             for box_clf in box_classifications
@@ -132,24 +144,25 @@ class PostProcessor:
             results.append(results_per_image)
         return results
 
-    def inference_single_image(self, box_cls, box_delta):
-        """
-        Single-image inference. Return bounding-box detection results by thresholding
-        on scores and applying non-maximum suppression (NMS).
+    def inference_single_image(
+        self, box_cls: List[torch.Tensor], box_delta: List[torch.Tensor]
+    ) -> List[BoundingBox]:
+        """ Single-image inference. Return bounding-box detection results by 
+        thresholding on scores and applying non-maximum suppression (NMS).
         Arguments:
-            box_cls (list[Tensor]): list of #feature levels. Each entry contains
+            box_cls: list of #feature levels. Each entry contains
                 tensor of size (H x W x A, K)
-            box_delta (list[Tensor]): Same shape as 'box_cls' except that K becomes 4.
+            box_delta: Same shape as 'box_cls' except that K becomes 4.
         Returns:
-            Same as `inference`, but for only one image.
+            A list of the bounding boxes predicted on one image.
         """
         boxes_all = []
         scores_all = []
         class_idxs_all = []
 
-        # Iterate over every feature level
+        # Iterate over each feature level
         for box_cls_i, box_reg_i, anchors_i in zip(
-            box_cls, box_delta, self.anchors.anchors_over_all_feature_maps
+            box_cls, box_delta, self.anchors_per_level
         ):
             # (HxWxAxK,)
             box_cls_i = box_cls_i.flatten().sigmoid_()

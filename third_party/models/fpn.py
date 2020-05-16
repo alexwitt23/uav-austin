@@ -7,6 +7,21 @@ from typing import List
 import torch
 
 
+class DepthwiseSeparable(torch.nn.Module):
+    def __init__(self, in_channels, out_channels) -> None:
+        self.layers = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                in_channels, in_channels, kernel_size=3, padding=1, groups=channels
+            ),
+            torch.nn.Conv2d(
+                in_channels, out_channels, kernel_size=1, padding=1, bias=True
+            ),
+        )
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return self.layers(x)
+
+
 class FPN(torch.nn.Module):
     def __init__(
         self, in_channels: List[int], out_channels: int, num_levels: int = 5
@@ -17,23 +32,15 @@ class FPN(torch.nn.Module):
         self.num_in = len(in_channels)
         self.num_levels = num_levels
 
-        # Construct a convolution per level.
-        self.convs = torch.nn.ModuleList(
-            [
-                torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
-                for _ in range(num_levels)
-            ]
-        )
-
         # Construct the lateral convolutions to adapt the incoming feature maps
         # to the same channel depth.
         self.lateral_convs = torch.nn.ModuleList(
-            [
-                torch.nn.Conv2d(
-                    channels, out_channels, kernel_size=3, stride=1, padding=1
-                )
-                for channels in in_channels
-            ]
+            [DepthwiseSeparable(channels, out_channels) for channels in in_channels]
+        )
+
+        # Construct a convolution per level.
+        self.convs = torch.nn.ModuleList(
+            [DepthwiseSeparable(out_channels, out_channels) for _ in range(num_levels)]
         )
 
     def __call__(self, feature_maps: List[torch.Tensor]) -> List[torch.Tensor]:
@@ -56,6 +63,7 @@ class FPN(torch.nn.Module):
                     align_corners=True,
                     mode="bilinear",
                 )
+            feature_maps[-idx - 1] = self.convs[idx](feature_maps[-idx - 1])
 
         # If more feature maps are needed to be made, take the top most incoming layer
         # and create the remaining levels.
