@@ -28,7 +28,7 @@ _IMG_WIDTH, _IMG_HEIGHT = generate_config.DETECTOR_SIZE
 _SAVE_DIR = pathlib.Path("~/runs/uav-det").expanduser()
 
 
-def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> dict:
+def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> List[dict]:
     """ Used to turn raw bounding box detections into a dictionary
     which can be serialized for the pycocotools package. """
     detections: List[dict] = []

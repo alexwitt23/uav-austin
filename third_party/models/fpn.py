@@ -9,12 +9,13 @@ import torch
 
 class DepthwiseSeparable(torch.nn.Module):
     def __init__(self, in_channels, out_channels) -> None:
+        super().__init__()
         self.layers = torch.nn.Sequential(
             torch.nn.Conv2d(
-                in_channels, in_channels, kernel_size=3, padding=1, groups=channels
+                in_channels, in_channels, kernel_size=3, padding=1, groups=in_channels
             ),
             torch.nn.Conv2d(
-                in_channels, out_channels, kernel_size=1, padding=1, bias=True
+                in_channels, out_channels, kernel_size=1, bias=True
             ),
         )
 
@@ -35,7 +36,7 @@ class FPN(torch.nn.Module):
         # Construct the lateral convolutions to adapt the incoming feature maps
         # to the same channel depth.
         self.lateral_convs = torch.nn.ModuleList(
-            [DepthwiseSeparable(channels, out_channels) for channels in in_channels]
+            [DepthwiseSeparable(channels, out_channels) for channels in reversed(in_channels)]
         )
 
         # Construct a convolution per level.
@@ -51,10 +52,8 @@ class FPN(torch.nn.Module):
         # apply lateral convolution, add with the previous layer (if there is one), and
         # then apply a convolution.
         for idx, level in enumerate(reversed(feature_maps)):
-
-            # Apply lateral conv
-            feature_maps[-idx - 1] = self.lateral_convs[-idx - 1](level)
-
+            # Apply the lateral convolution 
+            feature_maps[-idx - 1] = self.lateral_convs[idx](feature_maps[-idx - 1])
             # Add the previous layer upsampled, if there is one.
             if idx > 0:
                 feature_maps[-idx - 1] += torch.nn.functional.interpolate(

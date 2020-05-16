@@ -93,7 +93,7 @@ class EfficientDet(torch.nn.Module):
 
         self.postprocess = postprocess.PostProcessor(
             num_classes=num_classes,
-            anchors=self.anchors,
+            anchors_per_level=self.anchors.anchors_over_all_feature_maps,
             regressor=regression.Regressor(),
             max_detections_per_image=num_detections_per_image,
         )

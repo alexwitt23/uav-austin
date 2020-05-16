@@ -436,12 +436,12 @@ class EfficientNet(torch.nn.Module):
         about the output channels of each MBConv block. 
         >>> net = EfficientNet("efficientnet-b0", 2, (1024, 1024))
         >>> net.get_pyramid_channels()
-        [512, 256, 128, 64, 32]
+        [16, 24, 40, 112, 192]
         """
         # TODO(alex) maybe this can be done without a forward pass
         with torch.no_grad():
             out = self.forward_pyramids(torch.randn(1, 3, *self.img_size))
-        out = [level.shape[-1] for level in out]
+        out = [level.shape[1] for level in out]  # NCWH
         return out
 
     def delete_classification_head(self) -> None:

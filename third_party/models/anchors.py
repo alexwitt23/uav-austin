@@ -173,14 +173,14 @@ class AnchorGenerator(torch.nn.Module):
             grid_width * stride,
             step=stride,
             dtype=torch.float32,
-            device="cuda" if cuda else "cpu",
+            device="cpu",
         )
         shifts_y = torch.arange(
             offset * stride,
             grid_height * stride,
             step=stride,
             dtype=torch.float32,
-            device="cuda" if cuda else "cpu",
+            device="cpu",
         )
 
         shift_y, shift_x = torch.meshgrid(shifts_y, shifts_x)
