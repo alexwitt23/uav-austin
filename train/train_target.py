@@ -12,11 +12,7 @@ import yaml
 import shutil
 
 import torch
-<<<<<<< HEAD
-from sklearn import metrics 
-=======
 from sklearn import metrics
->>>>>>> a20669e7abe4fe90089dd4f4b7aae3a4f4da5690
 
 from core import target_typer
 from data_generation import generate_config
