@@ -10,7 +10,6 @@ import shutil
 import yaml
 
 import torch
-from torchcontrib.optim import SWA
 
 from train import datasets
 from train.train_utils import model_saver
@@ -44,7 +43,6 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         clf_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], clf_model)
-    opt = SWA(optimizer, swa_start=0, swa_lr=1e-5)
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
 
@@ -58,7 +56,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
         all_losses = []
         for idx, (data, labels) in enumerate(train_loader):
-            opt.zero_grad()
+            optimizer.zero_grad()
 
             if use_cuda:
                 data = data.cuda()
@@ -70,18 +68,17 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             # Compute the gradient throughout the model graph
             losses.backward()
             # Perform the weight updates
-            opt.step()
+            optimizer.step()
             # Update the learning rate
-            # lr_scheduler.step()
+            lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
                 lr = optimizer.param_groups[0]["lr"]
                 print(
-                    f"Epoch: {epoch} step {idx}, loss {sum(all_losses) / len(all_losses):.5}. lr: {lr}"
+                    f"Epoch: {epoch} step {idx}, loss {sum(all_losses) / len(all_losses):.5}. lr: {lr:.4}"
                 )
 
         # Call evaluation function
-        opt.swap_swa_sgd()
         clf_model.eval()
         eval_acc = eval(
             clf_model, eval_loader, use_cuda, save_best, highest_score, save_dir
