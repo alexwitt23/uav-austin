@@ -25,7 +25,7 @@ def create_batches(
     batch_size: int,
 ) -> Generator[types.BBox, None, None]:
     """ Creates batches of images based on the supplied params. The whole image
-    is tiled first, the batches are generated. 
+    is tiled first, the batches are generated.
     Args:
         image: The opencv opened image.
         tile_size: The height, width of the tiles to create.
@@ -44,7 +44,7 @@ def create_batches(
             if y + tile_size[0] >= image.shape[0]:
                 y = image.shape[0] - tile_size[0]
             tiles.append(
-                torch.Tensor(image[y : y + tile_size[0], x : x + tile_size[1]])
+                torch.Tensor(image[y : y + tile_size[0], x : x + tile_size[1], :])
             )
             coords.append((x, y))
 
@@ -91,7 +91,6 @@ def find_targets(
                 retval.extend(zip(coords, []))
 
         targets = globalize_boxes(retval)
-
         print(time.perf_counter() - start)
 
         if visualization_dir is not None:
@@ -102,9 +101,9 @@ def globalize_boxes(results: List[postprocess.BoundingBox]) -> List[types.Target
     final_targets = []
     for coords, bboxes in results:
         for box in bboxes:
-            relative_coords = box.box.tolist()
-            relative_coords += list(2 * coords)
-
+            relative_coords = box.box
+            relative_coords += torch.Tensor(list(2 * coords)).int()
+            relative_coords = relative_coords.tolist()
             final_targets.append(
                 types.Target(
                     x=relative_coords[0],
@@ -123,7 +122,7 @@ def visualize_image(
     visualization_dir: pathlib.Path,
     targets: List[types.Target],
 ) -> None:
-    """ Function used to draw boxes and information onto image for 
+    """ Function used to draw boxes and information onto image for
     visualizing the output of inference. """
     for target in targets:
         top_left = (target.x, target.y)
@@ -204,6 +203,7 @@ if __name__ == "__main__":
         use_cuda=torch.cuda.is_available(),
         half_precision=True,
     )
+    clf_model.eval()
     det_model = detector.Detector(
         version=args.det_version,
         num_classes=len(config.OD_CLASSES),
@@ -213,7 +213,7 @@ if __name__ == "__main__":
         use_cuda=torch.cuda.is_available(),
         half_precision=True,
     )
-
+    det_model.eval()
     # Get either the image or images
     if args.image_path is None and args.image_dir is None:
         raise ValueError("Please supply either an image or directory of images.")
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         imgs = [args.image_path.expanduser()]
     elif args.image_dir is not None:
         assert args.image_extension.startswith(".")
-        imgs = args.image_path.expanduser().glob(f"*{args.image_extension}")
+        imgs = args.image_dir.expanduser().glob(f"*{args.image_extension}")
 
     viz_dir = None
     if args.visualization_dir is not None:

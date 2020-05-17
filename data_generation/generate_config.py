@@ -17,7 +17,7 @@ _DOWNLOAD_BASE = generate_config.get(
 
 BACKGROUNDS_URL = [f"backgrounds-{v}.tar.gz" for v in BACKGROUNDS_VERSIONS]
 BASE_SHAPES_URL = f"base-shapes-{BASE_SHAPES_VERSION}.tar.gz"
-FONTS_URL = f"fonts.tar.gz"
+FONTS_URL = "fonts.tar.gz"
 
 ASSETS_DIR = pathlib.Path(__file__).parent / "assets"
 

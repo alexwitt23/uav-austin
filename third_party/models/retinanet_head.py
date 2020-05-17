@@ -1,14 +1,13 @@
+""" This is a collections of layers which expand the incoming feature layers
+into box regressions and class probabilities. """
+
 import copy
 from typing import Tuple, List
 
 import torch
-import numpy as np
 
 
 class SubNetLayer(torch.nn.Module):
-    """ Simple Subnet Block that allows for adding a residual as done in
-    efficiendet implementation. """
-
     def __init__(
         self,
         channels: int,
@@ -18,6 +17,18 @@ class SubNetLayer(torch.nn.Module):
         residual: bool = True,
         dropout: float = 0.2,
     ) -> None:
+        """ Simple Subnet Block that allows for adding a residual as done in
+        efficiendet implementation.
+        Args:
+            channels: The number of input filters.
+            kernel_size: The kernel to apply depthwise.
+            stride: The depthwise stride.
+            padding: Padding to add during depthwise.
+            residual: Wether to add residual between levels like in efficiendet.
+            drouput: Drouput probability to apply. Help to combat overfitting with
+                residual.
+        """
+
         super().__init__()
         self.residual = residual
         self.dropout = dropout
@@ -36,6 +47,7 @@ class SubNetLayer(torch.nn.Module):
                 in_channels=channels, out_channels=channels, kernel_size=1, bias=True,
             ),
             torch.nn.BatchNorm2d(channels),
+            torch.nn.ReLU(),
             torch.nn.Dropout(p=self.dropout if residual else 0, inplace=True),
         )
 
@@ -47,16 +59,16 @@ class SubNetLayer(torch.nn.Module):
 
 
 class RetinaNetHead(torch.nn.Module):
-    """ This model head contains two components: classification
-    and box regression. See the original RetinaNet paper for 
-    more details, https://arxiv.org/pdf/1708.02002.pdf. """
+    """ This model head contains two components: classification and box regression.
+    See the original RetinaNet paper for more details,
+    https://arxiv.org/pdf/1708.02002.pdf. """
 
     def __init__(
         self,
         num_classes: int,
         in_channels: int,
         anchors_per_cell: int,
-        num_convolutions: int,  # Original paper proposes 4 convs
+        num_convolutions: int = 4,  # Original paper proposes 4 convs
         dropout: float = 0.2,
     ) -> None:
         super().__init__()
@@ -96,8 +108,9 @@ class RetinaNetHead(torch.nn.Module):
             ),
         ]
 
-        # The regerssion expands the input into (4 * A) where 4 represents
-        # the position of the regeressed anchor.
+        # The regerssion expands the input into (4 * A) channels. So each x,y in the
+        # feature map has (4 * A) channels where 4 represents (dx, dy, dw, dh). The
+        # regressions for each component of each anchor box.
         regression_subnet += [
             torch.nn.Conv2d(
                 in_channels=in_channels,
@@ -122,7 +135,7 @@ class RetinaNetHead(torch.nn.Module):
     def __call__(
         self, feature_maps: List[torch.Tensor]
     ) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
-        """ Applies the regression and classification subnets to each of the 
+        """ Applies the regression and classification subnets to each of the
         incoming feature maps. """
 
         bbox_regressions = [self.regression_subnet(level) for level in feature_maps]

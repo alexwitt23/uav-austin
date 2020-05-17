@@ -17,7 +17,7 @@ import torch
 import numpy as np
 
 from train import datasets
-from train.train_utils import model_saver
+from train.train_utils import model_saver, swa
 from data_generation import generate_config
 from third_party.models import losses
 from core import detector
@@ -80,17 +80,15 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         num_classes=37,
     )
     det_model.train()
-    print(f"Model architecture: \n {det_model}")
+    #print(f"Model architecture: \n {det_model}")
 
     if use_cuda:
         torch.backends.cudnn.benchmark = True
         det_model.cuda()
 
-    optimizer = create_optimizer(train_cfg["optimizer"], det_model)
-    # TODO(alex) make this configurable
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer, len(train_loader), 1, 1e-9
-    )
+    optimizer1 = create_optimizer(train_cfg["optimizer"], det_model)
+
+    optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
 
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
@@ -131,7 +129,6 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             all_losses.append(total_loss.item())
             # Perform the parameter updates
             optimizer.step()
-            lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
                 print(

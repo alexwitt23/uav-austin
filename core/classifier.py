@@ -1,12 +1,9 @@
-""" A classifier model which wraps around a backbone. This setup allows for easy 
+""" A classifier model which wraps around a backbone. This setup allows for easy
 interchangeability during experimentation and a reliable way to load saved models. """
 
-import pathlib
-import math
 import yaml
 
 import torch
-import torchvision
 
 from core import pull_assets
 from third_party.models import efficientnet, resnet
@@ -27,10 +24,10 @@ class Classifier(torch.nn.Module):
         Args:
             img_width: The width of the input images.
             img_height: The height of the input images.
-            num_classes: The number of classes to predict. 
+            num_classes: The number of classes to predict.
             version: The version of the model to download from bintray.
             backbone: A string designating which model to load.
-            use_cuda: Wether this model is going to be used on  gpu.
+            use_cuda: Wether this model is going to be used on gpu.
             half_precision: Wether to use half precision for inference. For now
                 half_precision doesn't work well with training. Maybe in PyTorch 1.6.0.
         """
@@ -82,7 +79,8 @@ class Classifier(torch.nn.Module):
         return model
 
     def classify(self, x: torch.Tensor) -> torch.Tensor:
-        """ Take in an image batch and return the class 
-        for each image. """
+        """ Take in an image batch and return the class for each image. """
+        if self.use_cuda and self.half_precision:
+            x = x.half()
         _, predicted = torch.max(self.model(x).data, 1)
         return predicted
