@@ -23,6 +23,7 @@ class Detector(torch.nn.Module):
         use_cuda: bool = True,
         half_precision: bool = False,
         num_detections_per_image: int = 3,
+        confidence: float = 0.01,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -31,6 +32,7 @@ class Detector(torch.nn.Module):
         self.use_cuda = use_cuda
         self.half_precision = half_precision
         self.num_detections_per_image = num_detections_per_image
+        self.confidence = confidence
 
         if backbone is None and version is None:
             raise ValueError("Must supply either model version or backbone to load")
@@ -67,6 +69,7 @@ class Detector(torch.nn.Module):
                 num_classes=self.num_classes,
                 use_cuda=self.use_cuda,
                 num_detections_per_image=self.num_detections_per_image,
+                score_threshold=self.confidence,
             )
         elif backbone == "resnet18":
             model = efficientdet.EfficientDet(
@@ -74,6 +77,7 @@ class Detector(torch.nn.Module):
                 num_classes=self.num_classes,
                 use_cuda=self.use_cuda,
                 num_detections_per_image=self.num_detections_per_image,
+                score_threshold=self.confidence,
             )
         elif backbone == "resnet34":
             model = efficientdet.EfficientDet(

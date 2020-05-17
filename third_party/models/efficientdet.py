@@ -39,6 +39,7 @@ class EfficientDet(torch.nn.Module):
         use_cuda: bool = True,
         num_levels_extracted: int = 3,
         num_detections_per_image: int = 3,
+        score_threshold: float = 0.1,
     ) -> None:
         """ 
         Args:
@@ -96,6 +97,7 @@ class EfficientDet(torch.nn.Module):
             anchors_per_level=self.anchors.anchors_over_all_feature_maps,
             regressor=regression.Regressor(),
             max_detections_per_image=num_detections_per_image,
+            score_threshold=score_threshold,
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:

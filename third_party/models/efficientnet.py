@@ -102,7 +102,7 @@ _DEFAULT_MB_BLOCKS_ARGS = [
 ]
 
 # NOTE some people use relu here instead as it is non-transcindental.
-# Might lead to smaller memory footprint and quicker runtime. There might be 
+# Might lead to smaller memory footprint and quicker runtime. There might be
 # some convergence issues with ReLU, though.
 class Swish(torch.nn.Module):
     """ Swish activation function presented here:

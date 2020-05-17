@@ -84,5 +84,7 @@ class Classifier(torch.nn.Module):
     def classify(self, x: torch.Tensor) -> torch.Tensor:
         """ Take in an image batch and return the class 
         for each image. """
+        if self.use_cuda and self.half_precision:
+            x = x.half()
         _, predicted = torch.max(self.model(x).data, 1)
         return predicted

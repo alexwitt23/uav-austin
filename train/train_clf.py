@@ -90,7 +90,6 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5}, "
             f"Eval accuracy: {eval_acc:.4}"
         )
-    
 
 
 def eval(
