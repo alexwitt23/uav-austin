@@ -46,12 +46,12 @@ class FPN(torch.nn.Module):
         )
 
     def __call__(self, feature_maps: List[torch.Tensor]) -> List[torch.Tensor]:
-        """ Take the input feature maps and apply the necessary convolutions to build 
+        """ Take the input feature maps and apply the necessary convolutions to build
         out the num_levels specified. """
 
-        # First, loop over the incoming layers and proceed as follows: from top to bottom,
-        # apply lateral convolution, add with the previous layer (if there is one), and
-        # then apply a convolution.
+        # First, loop over the incoming layers and proceed as follows: from top to
+        # bottom, apply lateral convolution, add with the previous layer (if there is
+        # one), and then apply a convolution.
         for idx, level in enumerate(reversed(feature_maps)):
             # Apply the lateral convolution
             feature_maps[-idx - 1] = self.lateral_convs[idx](feature_maps[-idx - 1])

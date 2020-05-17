@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Script that will take detection data and copy it for cld-data."""
+"""  Script that will take detection data and copy it for cld-data. """
 
-import glob
-import pathlib
-from tqdm import tqdm
 import multiprocessing
-import random
 
+from tqdm import tqdm
 from PIL import Image, ImageEnhance, ImageOps, ImageFilter
 import numpy as np
 

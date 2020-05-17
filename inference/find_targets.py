@@ -25,7 +25,7 @@ def create_batches(
     batch_size: int,
 ) -> Generator[types.BBox, None, None]:
     """ Creates batches of images based on the supplied params. The whole image
-    is tiled first, the batches are generated. 
+    is tiled first, the batches are generated.
     Args:
         image: The opencv opened image.
         tile_size: The height, width of the tiles to create.
@@ -122,7 +122,7 @@ def visualize_image(
     visualization_dir: pathlib.Path,
     targets: List[types.Target],
 ) -> None:
-    """ Function used to draw boxes and information onto image for 
+    """ Function used to draw boxes and information onto image for
     visualizing the output of inference. """
     for target in targets:
         top_left = (target.x, target.y)

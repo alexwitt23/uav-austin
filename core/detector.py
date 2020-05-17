@@ -1,7 +1,6 @@
-""" A detector model which wraps around a feature extraction
-backbone, fpn, and RetinaNet head.This allows for easy 
-interchangeability during experimentation and a reliable way 
-to load saved models. """
+""" A detector model which wraps around a feature extraction backbone, fpn, and RetinaNet
+head.This allows for easy interchangeability during experimentation and a reliable way to
+load saved models. """
 
 import yaml
 
@@ -92,6 +91,5 @@ class Detector(torch.nn.Module):
         return model
 
     def detect(self, x: torch.Tensor) -> torch.Tensor:
-        """ Take in an image batch and return the class 
-        for each image. """
+        """ Take in an image batch and return the class for each image. """
         return self.model(x)

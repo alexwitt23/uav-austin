@@ -1,11 +1,10 @@
-""" Code to implement an effecientnet in PyTorch. 
+""" Code to implement an effecientnet in PyTorch.
 
-The architecture is based on scaling four model parameters: 
-depth (more layers), width (more filters per layer), resolution 
-(larger input images), and dropout (a regularization technique 
+The architecture is based on scaling four model parameters:
+depth (more layers), width (more filters per layer), resolution
+(larger input images), and dropout (a regularization technique
 to cause sparse feature learning). """
 
-import collections
 from typing import Tuple, List
 import math
 
@@ -101,6 +100,7 @@ _DEFAULT_MB_BLOCKS_ARGS = [
     },
 ]
 
+
 # NOTE some people use relu here instead as it is non-transcindental.
 # Might lead to smaller memory footprint and quicker runtime. There might be
 # some convergence issues with ReLU, though.
@@ -116,10 +116,11 @@ class Swish(torch.nn.Module):
 
 
 def round_filters(filters: int, scale: float, min_depth: int = 8) -> int:
-    """ This function is taken from the original tf repo.
-    It ensures that all layers have a channel number that is divisible by 8
+    """ This function is taken from the original tf repo. It ensures that all layers have
+    a channel number that is divisible by 8.
     It can be seen here:
-    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
+    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/
+    mobilenet.py
     """
     filters *= scale
     new_filters = max(min_depth, int(filters + min_depth / 2) // min_depth * min_depth)
@@ -131,8 +132,8 @@ def round_filters(filters: int, scale: float, min_depth: int = 8) -> int:
 
 
 def round_repeats(repeats: int, depth_multiplier: int) -> int:
-    """ Round off the number of repeats. This determine how many times
-    to repeat a block. """
+    """ Round off the number of repeats. This determine how many times to repeat a
+    block. """
     return int(math.ceil(depth_multiplier * repeats))
 
 
@@ -193,7 +194,7 @@ class DepthwiseConv(torch.nn.Module):
 
 class SqueezeExcitation(torch.nn.Module):
     """  See here for one of the original implementations:
-    https://arxiv.org/pdf/1709.01507.pdf. The layer 'adaptively recalibrates 
+    https://arxiv.org/pdf/1709.01507.pdf. The layer 'adaptively recalibrates
     channel-wise feature responses by explicitly  modeling interdependencies
     between channels.' """
 
@@ -222,16 +223,16 @@ class SqueezeExcitation(torch.nn.Module):
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        """ Apply the squeezing and excitation, then elementwise multiplacation of 
+        """ Apply the squeezing and excitation, then elementwise multiplacation of
         the excitation 1 x 1 x out_channels tensor. """
         return x * self.layers(x)
 
 
 class eSE(torch.nn.Module):
-    """ This is a variant of the squeeze-excitation layer proposed in 
-    https://arxiv.org/pdf/1911.06667.pdf (VoVNet2). This layer removes the squeezing 
-    of channels to preserving spatial information. We also use a piece-wise linear 
-    approximation (hard-sigmoid) here to reduce the transcendental computation load 
+    """ This is a variant of the squeeze-excitation layer proposed in
+    https://arxiv.org/pdf/1911.06667.pdf (VoVNet2). This layer removes the squeezing
+    of channels to preserving spatial information. We also use a piece-wise linear
+    approximation (hard-sigmoid) here to reduce the transcendental computation load
     of the normal sigmoid. """
 
     def __init__(self, expanded_channels: int) -> None:
@@ -247,7 +248,7 @@ class eSE(torch.nn.Module):
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        """ Apply the squeezing and excitation, then elementwise multiplacation of 
+        """ Apply the squeezing and excitation, then elementwise multiplacation of
         the excitation 1 x 1 x out_channels tensor. """
         out = self.layers(x)
         # Apply hard sigmoid activation. ReLU6 puts input between [0, 6]. We add
@@ -318,15 +319,15 @@ class MBConvBlock(torch.nn.Module):
 
 
 class EfficientNet(torch.nn.Module):
-    """ Entrypoint for creating an effecientnet. """
+    """ Entrypoint for creating an efficientnet. """
 
     def __init__(
         self, backbone: str, num_classes: int, img_size: Tuple[int, int] = (512, 512)
     ) -> None:
-        """ Instantiant the EffecientNet. 
+        """ Instantiant the EfficientNet.
 
         Args:
-            scale_params: (width_coefficient, depth_coefficient, resolution, dropout_rate)
+            scale_params: (width_coefficient, depth_coefficient, resolution, dropout)
         """
         super().__init__()
         self.img_size = img_size
@@ -416,7 +417,7 @@ class EfficientNet(torch.nn.Module):
         return self.model_head(features)
 
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
-        """ Get the outputs at each level. 
+        """ Get the outputs at each level.
         Usage:
         >>> net = EfficientNet("efficientnet-b0", 2)
         >>> with torch.no_grad():
@@ -432,8 +433,8 @@ class EfficientNet(torch.nn.Module):
         return [x1, x2, x3, x4, x5]
 
     def get_pyramid_channels(self) -> List[int]:
-        """ Return the number of channels from each pyramid level. We only care 
-        about the output channels of each MBConv block. 
+        """ Return the number of channels from each pyramid level. We only care
+        about the output channels of each MBConv block.
         >>> net = EfficientNet("efficientnet-b0", 2, (1024, 1024))
         >>> net.get_pyramid_channels()
         [16, 24, 40, 112, 192]

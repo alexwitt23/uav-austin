@@ -5,7 +5,6 @@ import copy
 from typing import Tuple, List
 
 import torch
-import numpy as np
 
 
 class SubNetLayer(torch.nn.Module):
@@ -19,9 +18,9 @@ class SubNetLayer(torch.nn.Module):
         dropout: float = 0.2,
     ) -> None:
         """ Simple Subnet Block that allows for adding a residual as done in
-        efficiendet implementation. 
+        efficiendet implementation.
         Args:
-            channels: The number of input filters. 
+            channels: The number of input filters.
             kernel_size: The kernel to apply depthwise.
             stride: The depthwise stride.
             padding: Padding to add during depthwise.
@@ -60,8 +59,8 @@ class SubNetLayer(torch.nn.Module):
 
 
 class RetinaNetHead(torch.nn.Module):
-    """ This model head contains two components: classification and box regression. 
-    See the original RetinaNet paper for more details, 
+    """ This model head contains two components: classification and box regression.
+    See the original RetinaNet paper for more details,
     https://arxiv.org/pdf/1708.02002.pdf. """
 
     def __init__(
@@ -110,7 +109,7 @@ class RetinaNetHead(torch.nn.Module):
         ]
 
         # The regerssion expands the input into (4 * A) channels. So each x,y in the
-        # feature map has (4 * A) channels where 4 represents (dx, dy, dw, dh). The 
+        # feature map has (4 * A) channels where 4 represents (dx, dy, dw, dh). The
         # regressions for each component of each anchor box.
         regression_subnet += [
             torch.nn.Conv2d(
@@ -136,7 +135,7 @@ class RetinaNetHead(torch.nn.Module):
     def __call__(
         self, feature_maps: List[torch.Tensor]
     ) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
-        """ Applies the regression and classification subnets to each of the 
+        """ Applies the regression and classification subnets to each of the
         incoming feature maps. """
 
         bbox_regressions = [self.regression_subnet(level) for level in feature_maps]

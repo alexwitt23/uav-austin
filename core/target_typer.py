@@ -1,13 +1,8 @@
-""" A detector model which wraps around a feature extraction
-backbone, fpn, and RetinaNet head.This allows for easy 
-interchangeability during experimentation and a reliable way 
-to load saved models. """
+""" """
 
-import pathlib
 import yaml
 
 import torch
-import torchvision
 
 from core import pull_assets
 from third_party.models import resnet, efficientnet

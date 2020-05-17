@@ -4,7 +4,7 @@ import dataclasses
 import torch
 from torchvision.ops import boxes as box_ops
 
-from third_party.models import regression, anchors
+from third_party.models import regression
 
 
 @dataclasses.dataclass
@@ -16,9 +16,12 @@ class BoundingBox:
 
 # https://github.com/facebookresearch/detectron2/blob/master/detectron2/modeling/meta_arch/retinanet.py
 def permute_to_N_HWA_K(retina_tensor: torch.Tensor, num_classes: int) -> torch.Tensor:
-    """ Transpose/reshape a tensor from (N, (A x K), H, W) 
-    to (N, (HxWxA), K). This is the tensor outputted from the
-    RetinaNet head per pyramid level. """
+    """ Transpose/reshape a tensor from (N, (A x K), H, W) to (N, (HxWxA), K). This is
+    the tensor outputted from the RetinaNet head per pyramid level.
+    Usage:
+    >>> permute_to_N_HWA_K(torch.randn(1, 4 * 9, 4, 4), 4).shape
+    torch.Size([1, 144, 4])
+    """
 
     assert retina_tensor.dim() == 4, retina_tensor.shape
     N, _, H, W = retina_tensor.shape
@@ -31,15 +34,18 @@ def permute_to_N_HWA_K(retina_tensor: torch.Tensor, num_classes: int) -> torch.T
 def permute_to_N_HWA_K_and_concat(
     box_cls: List[torch.Tensor], box_delta: List[torch.Tensor], num_classes: int
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Args:
-
-    Rearrange the tensor layout from the network output, i.e.:
-    list[Tensor]: #lvl tensors of shape (N, A x K, Hi, Wi)
-    to per-image predictions, i.e.:
+    """ Rearrange the tensor layout from the network output, i.e.: list[Tensor]: #lvl
+    tensors of shape (N, A x K, Hi, Wi) to per-image predictions, i.e.:
     Tensor: of shape (N x sum(Hi x Wi x A), K)
+    Args:
+        box_cls: The outputted classifications per level of the retinanet head.
+        box_delta: The outputted box deltas from the retinanet head.
+        num_classes: The number of predicted classes.
+    Returns:
+        The classifications and regressions concatenated into one tensor each.
+    Usage:
     """
-    # for each feature level, permute the outputs to make them be in the
+    # For each feature level, permute the outputs to make them be in the
     # same format as the labels. Note that the labels are computed for
     # all feature levels concatenated, so we keep the same representation
     # for the objectness and the box_delta
@@ -65,7 +71,7 @@ def batched_nms(boxes, scores, idxs, iou_threshold):
     result_mask = scores.new_zeros(scores.size(), dtype=torch.bool)
     for id in torch.unique(idxs).cpu().tolist():
         mask = (idxs == id).nonzero().view(-1)
-        keep = nms(boxes[mask], scores[mask], iou_threshold)
+        keep = box_ops.batched_nms(boxes[mask], scores[mask], iou_threshold)
         result_mask[mask[keep]] = True
     keep = result_mask.nonzero().view(-1)
     keep = keep[scores[keep].argsort(descending=True)]
@@ -74,7 +80,7 @@ def batched_nms(boxes, scores, idxs, iou_threshold):
 
 # https://github.com/facebookresearch/detectron2/blob/master/detectron2/layers/wrappers.py
 def cat(tensors, dim=0):
-    """ Efficient version of torch.cat that avoids a copy if there 
+    """ Efficient version of torch.cat that avoids a copy if there
     is only a single element in a list. """
     assert isinstance(tensors, (list, tuple))
     if len(tensors) == 1:
@@ -94,14 +100,14 @@ class PostProcessor:
         topk_candidates: int = 3,
     ) -> None:
         """ This class will parse the model's class predictions and box
-        regressions. 
+        regressions and return the output boxes.
 
         Args:
-            num_classes: The number of classes predicted. 
+            num_classes: The number of classes predicted.
             anchors_per_level: The anchors for each feature level.
             regressor: A class that performs the regression application.
             score_threshold: The threshold detections must meet.
-            max_detections_per_image: The number of boxes predicted above 
+            max_detections_per_image: The number of boxes predicted above
                 confidence.
             nms_threshold: The non-maximal suppression threshold.
             topk_candidates: The most confident box predictions _per feature
@@ -147,7 +153,7 @@ class PostProcessor:
     def inference_single_image(
         self, box_cls: List[torch.Tensor], box_delta: List[torch.Tensor]
     ) -> List[BoundingBox]:
-        """ Single-image inference. Return bounding-box detection results by 
+        """ Single-image inference. Return bounding-box detection results by
         thresholding on scores and applying non-maximum suppression (NMS).
         Arguments:
             box_cls: list of #feature levels. Each entry contains
@@ -196,10 +202,7 @@ class PostProcessor:
             cat(x) for x in [boxes_all, scores_all, class_idxs_all]
         ]
         keep = batched_nms(
-            boxes_all.cpu().float(),
-            scores_all.cpu().float(),
-            class_idxs_all.cpu(),
-            self.nms_threshold,
+            boxes_all.float(), scores_all.float(), class_idxs_all, self.nms_threshold,
         )
         keep = keep[: self.max_detections_per_image]
 

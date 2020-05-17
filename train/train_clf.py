@@ -12,7 +12,7 @@ import yaml
 import torch
 
 from train import datasets
-from train.train_utils import model_saver
+from train.train_utils import model_saver, swa
 from core import classifier
 from data_generation import generate_config
 
@@ -29,7 +29,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     use_cuda = train_cfg.get("gpu", False)
     save_best = train_cfg.get("save_best", False)
     if save_best:
-        highest_score = 0.0
+        highest_score = {}
 
     clf_model = classifier.Classifier(
         backbone=model_cfg.get("backbone", None),
@@ -39,17 +39,13 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     )
     print("Model: \n", clf_model)
     if use_cuda:
-        torch.backends.cudnn.benchmark = True
         clf_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], clf_model)
+    optimizer = swa.SWA(optimizer, clf_model)
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
 
-    # TODO(alex) make this configurable
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, len(train_loader), 1e-9
-    )
     loss_fn = torch.nn.CrossEntropyLoss()
 
     for epoch in range(epochs):
@@ -69,8 +65,6 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             losses.backward()
             # Perform the weight updates
             optimizer.step()
-            # Update the learning rate
-            lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
                 lr = optimizer.param_groups[0]["lr"]
@@ -80,44 +74,54 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
         # Call evaluation function
         clf_model.eval()
+        optimizer.update_bn(train_loader)
         eval_acc = eval(
-            clf_model, eval_loader, use_cuda, save_best, highest_score, save_dir
+            clf_model, optimizer.swa_model, eval_loader, use_cuda, save_best, highest_score, save_dir
         )
-        highest_score = eval_acc if eval_acc > highest_score else highest_score
+        #highest_score = eval_acc if eval_acc > highest_score else highest_score
         clf_model.train()
 
         print(
-            f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5}, "
-            f"Eval accuracy: {eval_acc:.4}"
+            f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5} \n"
+            f"Base accuracy: {eval_acc['base']:.4} \n"
+            f"SWA accuracy: {eval_acc['swa']:.4} \n"
         )
 
 
 def eval(
     clf_model: torch.nn.Module,
+    swa_model: torch.nn.Module,
     eval_loader: torch.utils.data.DataLoader,
     use_cuda: bool = False,
     save_best: bool = False,
-    previous_best: float = None,
+    previous_best: dict = None,
     save_dir: pathlib.Path = None,
 ) -> float:
     """ Evalulate the model against the evaulation set. Save the best 
     weights if specified. """
-
-    total_num, num_correct = 0, 0
+    swa_model.cuda()
+    num_correct_base, num_correct_swa = 0, 0
     with torch.no_grad():
         for data, labels in eval_loader:
-            if use_cuda:
+            if torch.cuda.is_available():
                 data = data.cuda()
                 labels = labels.cuda()
 
-            out = clf_model(data)
-            _, predicted = torch.max(out.data, 1)
+            out_base = clf_model(data)
+            _, predicted_base = torch.max(out_base.data, 1)
 
-            total_num += labels.size(0)
-            num_correct += (predicted == labels).sum().item()
+            out_swa = swa_model(data)
+            _, predicted_swa = torch.max(out_swa.data, 1)
 
-    accuracy = num_correct / total_num
+            num_correct_base += (predicted_base == labels).sum().item()
+            num_correct_swa += (predicted_swa == labels).sum().item()
+    swa_model.cpu()
 
+    accuracy = {
+        "base": num_correct_base / len(eval_loader.dataset),
+        "swa": num_correct_swa / len(eval_loader.dataset)
+    }
+    """
     if save_best and accuracy > previous_best:
         print(f"Saving model with accuracy {accuracy:.5}.")
         # Delete thee previous best
@@ -126,7 +130,7 @@ def eval(
             previous_best.unlink()
 
         model_saver.save_model(clf_model.model, save_dir / "classifier.pt")
-
+    """
     return accuracy
 
 

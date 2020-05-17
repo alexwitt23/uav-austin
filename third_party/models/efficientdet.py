@@ -1,10 +1,10 @@
-from typing import List, Tuple
+from typing import List
 
 import torch
 
 from third_party.models import (
     efficientnet,
-    BiFPN,
+    bifpn,
     retinanet_head,
     postprocess,
     regression,
