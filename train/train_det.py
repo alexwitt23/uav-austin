@@ -14,7 +14,6 @@ import shutil
 
 from pycocotools import coco, cocoeval
 import torch
-from torchcontrib.optim import SWA
 import numpy as np
 
 from train import datasets
@@ -45,6 +44,7 @@ def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> List[dict]:
                     "score": bbox.confidence,
                 }
             )
+    print(detections[-1])
     return detections
 
 
@@ -86,8 +86,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         torch.backends.cudnn.benchmark = True
         det_model.cuda()
 
-    optimizer1 = create_optimizer(train_cfg["optimizer"], det_model)
-    optimizer = SWA(optimizer1, swa_start=0, swa_freq=5, swa_lr=1e-4)
+    optimizer = create_optimizer(train_cfg["optimizer"], det_model)
     # TODO(alex) make this configurable
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
         optimizer, len(train_loader), 1, 1e-9
@@ -101,7 +100,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         all_losses = []
         clf_losses = []
         reg_losses = []
-
+        
         for idx, (images, boxes, classes, _) in enumerate(train_loader):
 
             optimizer.zero_grad()
@@ -132,7 +131,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             all_losses.append(total_loss.item())
             # Perform the parameter updates
             optimizer.step()
-            # lr_scheduler.step()
+            lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
                 print(
@@ -140,7 +139,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                     f"clf loss {sum(clf_losses) / len(clf_losses):.5}, "
                     f"reg loss {sum(reg_losses) / len(reg_losses):.5}"
                 )
-
+        
         # Call evaluation function
         det_model.eval()
         eval_acc = eval(

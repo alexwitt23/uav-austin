@@ -112,7 +112,7 @@ class Swish(torch.nn.Module):
         super().__init__()
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return x * torch.sigmoid_(x)
+        return x * torch.nn.functional.relu6(x + 3) / 6
 
 
 def round_filters(filters: int, scale: float, min_depth: int = 8) -> int:
