@@ -26,7 +26,7 @@ class Regressor:
         """
         assert isinstance(src_boxes, torch.Tensor), type(src_boxes)
         assert isinstance(target_boxes, torch.Tensor), type(target_boxes)
-
+        
         src_widths = src_boxes[:, 2] - src_boxes[:, 0]
         src_heights = src_boxes[:, 3] - src_boxes[:, 1]
         src_ctr_x = src_boxes[:, 0] + 0.5 * src_widths
@@ -44,6 +44,7 @@ class Regressor:
         dh = wh * torch.log(target_heights / src_heights)
 
         deltas = torch.stack((dx, dy, dw, dh), dim=1)
+
         assert (
             (src_widths > 0).all().item()
         ), "Input boxes to Box2BoxTransform are not valid!"
@@ -80,7 +81,7 @@ class Regressor:
         pred_ctr_y = dy * heights[:, None] + ctr_y[:, None]
         pred_w = torch.exp(dw) * widths[:, None]
         pred_h = torch.exp(dh) * heights[:, None]
-
+        
         pred_boxes = torch.zeros_like(deltas)
         pred_boxes[:, 0::4] = pred_ctr_x - 0.5 * pred_w  # x1
         pred_boxes[:, 1::4] = pred_ctr_y - 0.5 * pred_h  # y1

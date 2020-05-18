@@ -95,9 +95,9 @@ class PostProcessor:
         anchors_per_level: List[torch.Tensor],
         regressor: regression.Regressor,
         score_threshold: float = 0.1,
-        max_detections_per_image: int = 3,
+        max_detections_per_image: int = 100,
         nms_threshold: float = 0.5,
-        topk_candidates: int = 3,
+        topk_candidates: int = 100,
     ) -> None:
         """ This class will parse the model's class predictions and box
         regressions and return the output boxes.
@@ -170,6 +170,7 @@ class PostProcessor:
         for box_cls_i, box_reg_i, anchors_i in zip(
             box_cls, box_delta, self.anchors_per_level
         ):
+            
             # (HxWxAxK,)
             box_cls_i = box_cls_i.flatten().sigmoid_()
 
