@@ -69,6 +69,8 @@ class SWA(torch.optim.Optimizer):
         are not accoutned for in the weighted average calculation. This function should be called
         before saving the swa model or before swa evaluation. """
         self.swa_model.train()
+        if torch.cuda.is_available():
+            self.swa_model.cuda()
         momenta = {}
         self.swa_model.apply(reset_bn)
         self.swa_model.apply(lambda module: _get_momenta(module, momenta))
@@ -79,11 +81,14 @@ class SWA(torch.optim.Optimizer):
             momentum = batch_size / (n + batch_size)
             for module in momenta.keys():
                 module.momentum = momentum
-
+            if torch.cuda.is_available():
+                data = data.cuda()
             self.swa_model(data)
             n += batch_size
 
         self.swa_model.apply(lambda module: _set_momenta(module, momenta))
+        self.swa_model.cpu()
+        self.swa_model.eval()
 
 def reset_bn(module):
     if issubclass(module.__class__, torch.nn.modules.batchnorm._BatchNorm):

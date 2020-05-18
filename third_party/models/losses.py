@@ -129,7 +129,7 @@ class Matcher:
         self,
         thresholds: List[float] = [0.4, 0.5],
         labels: List[int] = [0, -1, 1],
-        allow_low_quality_matches: bool = False,
+        allow_low_quality_matches: bool = True,
     ):
         """
         Args:

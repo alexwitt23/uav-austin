@@ -62,7 +62,7 @@ class Detector(torch.nn.Module):
 
     def _load_backbone(self, backbone: str) -> torch.nn.Module:
         """ Load the supplied backbone. """
-        if backbone == "efficientdet-b0":
+        if "efficientdet" in backbone:
             model = efficientdet.EfficientDet(
                 backbone=backbone,
                 num_classes=self.num_classes,

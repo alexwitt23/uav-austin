@@ -99,7 +99,7 @@ ALPHA_FONTS = [
     ALPHA_FONT_DIR / "News_Cycle" / "NewsCycle-Bold.ttf",
 ]
 
-OD_CLASSES = SHAPE_TYPES + ALPHAS
+OD_CLASSES = SHAPE_TYPES #+ ALPHAS
 
 # [Model Dimensions]
 FULL_SIZE = (

@@ -33,7 +33,7 @@ class EfficientDet(torch.nn.Module):
     def __init__(
         self,
         num_classes: int,
-        backbone: str = "efficientdet-b0",
+        backbone: str,
         anchors_per_cell: int = 4,
         levels: List[int] = [3, 4, 5, 6, 7],
         use_cuda: bool = True,
@@ -50,9 +50,10 @@ class EfficientDet(torch.nn.Module):
         self.num_levels_extracted = num_levels_extracted
         self.num_detections_per_image = num_detections_per_image
 
-        self.backbone = efficientnet.EfficientNet(
-            _MODEL_SCALES[backbone][1], num_classes=num_classes
-        )
+        #self.backbone = efficientnet.EfficientNet(
+        #    "efficientnet-b1", num_classes=num_classes
+        #)
+        self.backbone = resnet.resnet18(pretrained=True)
         self.backbone.delete_classification_head()
         # Get the output feature for the pyramids we need
         features = self.backbone.get_pyramid_channels()[-num_levels_extracted:]
@@ -61,7 +62,7 @@ class EfficientDet(torch.nn.Module):
 
         # Create the BiFPN with the supplied parameter options.
         """
-        self.fpn = BiFPN.BiFPN(
+        self.fpn = bifpn.BiFPN(
             in_channels=features,
             out_channels=params[2],
             num_bifpns=params[3],
@@ -69,7 +70,8 @@ class EfficientDet(torch.nn.Module):
             bifpn_height=5,
         )
         """
-        self.fpn = fpn.FPN(in_channels=features, out_channels=params[2], num_levels=5,)
+        self.fpn = fpn.FPN(in_channels=features, out_channels=122, num_levels=5)
+        
         self.anchors = anchors.AnchorGenerator(
             img_height=params[0],
             img_width=params[0],
@@ -77,10 +79,11 @@ class EfficientDet(torch.nn.Module):
             anchor_scales=[1.0, 1.2599, 1.5874],
             use_cuda=use_cuda,
         )
+        
         # Create the retinanet head.
         self.retinanet_head = retinanet_head.RetinaNetHead(
             num_classes,
-            in_channels=params[2],
+            in_channels=122,
             anchors_per_cell=self.anchors.num_anchors_per_cell,
             num_convolutions=params[4],
             dropout=0.2,

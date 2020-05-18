@@ -92,10 +92,11 @@ class BiFPN(torch.nn.Module):
         # Make sure fpn gets the anticipated number of levels.
         assert len(feature_maps) == self.num_levels_in, len(feature_maps)
 
-        # If we need to downsample the last couple layers, first apply a lateral convolution if
-        # needed, then upsample. This is similar to the original implementation's
-        # `resample_feature_map`:
-        # https://github.com/google/automl/blob/3e7d7b77bcefb3f7051de6c468e0e17ce201165e/efficientdet/efficientdet_arch.py#L105.
+        # If we need to downsample the last couple layers, first apply a lateral
+        # convolution if needed, then upsample. This is similar to the original 
+        # implementation's `resample_feature_map`:
+        # https://github.com/google/automl/blob/3e7d7b77bcefb3f7051de6c468e0e17ce201165e/
+        # efficientdet/efficientdet_arch.py#L105.
 
         # Apply the lateral convolutions, to get the input feature maps to the same
         # number of channels.

@@ -39,6 +39,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     )
     print("Model: \n", clf_model)
     if use_cuda:
+        torch.backends.cudnn.benchmark = True
         clf_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], clf_model)

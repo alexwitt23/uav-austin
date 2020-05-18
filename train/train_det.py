@@ -28,8 +28,8 @@ _SAVE_DIR = pathlib.Path("~/runs/uav-det").expanduser()
 
 
 def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> List[dict]:
-    """ Used to turn raw bounding box detections into a dictionary
-    which can be serialized for the pycocotools package. """
+    """ Used to turn raw bounding box detections into a dictionary which can be 
+    serialized for the pycocotools package. """
     detections: List[dict] = []
     for image_boxes, image_id in zip(bboxes, image_ids):
         for bbox in image_boxes:
@@ -44,7 +44,6 @@ def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> List[dict]:
                     "score": bbox.confidence,
                 }
             )
-    print(detections[-1])
     return detections
 
 
@@ -77,18 +76,18 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         backbone=model_cfg.get("backbone", None),
         img_width=generate_config.DETECTOR_SIZE[0],
         img_height=generate_config.DETECTOR_SIZE[0],
-        num_classes=37,
+        num_classes=len(generate_config.OD_CLASSES),
     )
     det_model.train()
-    #print(f"Model architecture: \n {det_model}")
+    print(f"Model architecture: \n {det_model}")
 
     if use_cuda:
         torch.backends.cudnn.benchmark = True
         det_model.cuda()
-
-    optimizer1 = create_optimizer(train_cfg["optimizer"], det_model)
-
-    optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
+        
+    optimizer = create_optimizer(train_cfg["optimizer"], det_model)
+    #optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader.dataset), eta_min=1e-7)
 
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
@@ -118,7 +117,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                 gt_boxes=list(boxes.unbind(0)),
                 cls_per_level=cls_per_level,
                 reg_per_level=reg_per_level,
-                num_classes=37,
+                num_classes=len(generate_config.OD_CLASSES),
                 use_cuda=use_cuda,
             )
             total_loss = cls_loss + reg_loss
@@ -129,6 +128,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             all_losses.append(total_loss.item())
             # Perform the parameter updates
             optimizer.step()
+            lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
                 print(
@@ -172,7 +172,7 @@ def eval(
             total_num += images.shape[0]
             detections = det_model(images)
             detections_dict.extend(detections_to_dict(detections, image_ids))
-
+        
         print(
             f"Evaluated {total_num} images in {time.perf_counter() - start:.3} seconds."
         )
@@ -180,11 +180,14 @@ def eval(
             tmp_json = pathlib.Path(d) / "det.json"
             tmp_json.write_text(json.dumps(detections_dict))
             coco_gt = coco.COCO(generate_config.DATA_DIR / "detector_val/val_coco.json")
-            coco_predicted = coco_gt.loadRes(str(tmp_json))
-            cocoEval = cocoeval.COCOeval(coco_gt, coco_predicted, "bbox")
-            cocoEval.evaluate()
-            cocoEval.accumulate()
-            cocoEval.summarize()
+            try:
+                coco_predicted = coco_gt.loadRes(str(tmp_json))
+                cocoEval = cocoeval.COCOeval(coco_gt, coco_predicted, "bbox")
+                cocoEval.evaluate()
+                cocoEval.accumulate()
+                cocoEval.summarize()
+            except IndexError:
+                pass
 
     if save_best:
         model_saver.save_model(det_model.model, save_dir / "detector.pt")

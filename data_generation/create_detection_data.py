@@ -214,6 +214,7 @@ def add_shapes(
         h = (y2 - y1) / im_h
 
         shape_bboxes.append((CLASSES.index(shape_param[0]), x, y, w, h))
+        """
         shape_bboxes.append(
             (
                 CLASSES.index(shape_param[2]),
@@ -223,7 +224,7 @@ def add_shapes(
                 0.8 * h,
             )
         )
-
+        """
     return shape_bboxes, background.convert("RGB")
 
 
@@ -277,9 +278,6 @@ def create_shape(
 
     image = rotate_shape(image, shape, angle)
     image = strip_image(image)
-    image = ImageEnhance.Color(image).enhance(random.uniform(0.3, 1))
-    image = ImageEnhance.Contrast(image).enhance(random.uniform(0.3, 1))
-    image = ImageEnhance.Brightness(image).enhance(random.uniform(0.3, 1))
 
     return image
 
@@ -406,7 +404,8 @@ def create_coco_metadata(data_dir: pathlib.Path, out_path: pathlib.Path) -> None
     for idx, name in enumerate(CLASSES):
         categories.append({"supercategory": "none", "name": name, "id": idx})
 
-    for idx, label_file in enumerate(data_dir.glob(f"*.json")):
+    jsons = sorted(list(data_dir.glob("*.json")))
+    for idx, label_file in enumerate(jsons):
         labels = json.loads(label_file.read_text())
         images.append(
             {
@@ -430,20 +429,10 @@ def create_coco_metadata(data_dir: pathlib.Path, out_path: pathlib.Path) -> None
             annotations.append(
                 {
                     "id": len(annotations),
-                    "bbox": [
-                        int(label["x1"] * config.DETECTOR_SIZE[0]),
-                        int(label["y1"] * config.DETECTOR_SIZE[1]),
-                        int(label["w"] * config.DETECTOR_SIZE[0]),
-                        int(label["h"] * config.DETECTOR_SIZE[1]),
-                    ],
+                    "bbox": [x1, y1, w, h],
                     "category_id": label["class_id"],
                     "iscrowd": 0,
-                    "area": int(
-                        label["w"]
-                        * label["h"]
-                        * config.DETECTOR_SIZE[0]
-                        * config.DETECTOR_SIZE[0]
-                    ),
+                    "area": w * h,
                     "image_id": labels["image_id"],
                     "segmentation": [[x1, y1, x1, y1 + h, x1 + w, y1 + h, x1 + w, y1]],
                 }
