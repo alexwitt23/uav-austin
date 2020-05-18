@@ -1,0 +1,16 @@
+model:
+  type: "detection"
+  backbone: "vovnet"
+  fpn: "retinanet"
+training:
+  optimizer: 
+    type: "SGD"
+    lr: 1e-4
+    momentum: 0.9
+    weight_decay: 1e-5
+  epochs: 3
+  gpu: True
+  train_batch_size: 5
+  eval_batch_size: 64
+  save_best: True
+  

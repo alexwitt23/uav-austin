@@ -74,20 +74,21 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     # We don't need the backbone to make classifications.
     det_model = detector.Detector(
         backbone=model_cfg.get("backbone", None),
+        fpn_name=model_cfg.get("fpn", None),
         img_width=generate_config.DETECTOR_SIZE[0],
         img_height=generate_config.DETECTOR_SIZE[0],
         num_classes=37,
     )
     det_model.train()
-    #print(f"Model architecture: \n {det_model}")
+    print(f"Model architecture: \n {det_model}")
 
     if use_cuda:
         torch.backends.cudnn.benchmark = True
         det_model.cuda()
 
-    optimizer1 = create_optimizer(train_cfg["optimizer"], det_model)
+    optimizer = create_optimizer(train_cfg["optimizer"], det_model)
 
-    optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
+    #optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
 
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
@@ -112,7 +113,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
             # Compute the losses
             cls_loss, reg_loss = losses.compute_losses(
-                det_model.model.anchors.all_anchors,
+                det_model.anchors.all_anchors,
                 gt_classes=list(classes.unbind(0)),
                 gt_boxes=list(boxes.unbind(0)),
                 cls_per_level=cls_per_level,
@@ -166,7 +167,7 @@ def eval(
     with torch.no_grad():
         detections_dict: List[dict] = []
         for images, _, _, image_ids in eval_loader:
-            if use_cuda:
+            if torch.cuda.is_available():
                 images = images.cuda()
             total_num += images.shape[0]
             detections = det_model(images)
@@ -186,7 +187,7 @@ def eval(
             cocoEval.summarize()
 
     if save_best:
-        model_saver.save_model(det_model.model, save_dir / "detector.pt")
+        model_saver.save_model(det_model, save_dir / "detector.pt")
 
     return 0.0
 
