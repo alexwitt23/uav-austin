@@ -2,6 +2,7 @@
 into box regressions and class probabilities. """
 
 import copy
+import collections
 from typing import Tuple, List
 
 import torch
@@ -133,12 +134,12 @@ class RetinaNetHead(torch.nn.Module):
         self.classification_subnet = torch.nn.Sequential(*classification_subnet)
 
     def __call__(
-        self, feature_maps: List[torch.Tensor]
+        self, feature_maps: collections.OrderedDict
     ) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
         """ Applies the regression and classification subnets to each of the
         incoming feature maps. """
 
-        bbox_regressions = [self.regression_subnet(level) for level in feature_maps]
-        classifications = [self.classification_subnet(level) for level in feature_maps]
+        bbox_regressions = [self.regression_subnet(level) for level in feature_maps.values()]
+        classifications = [self.classification_subnet(level) for level in feature_maps.values()]
 
         return classifications, bbox_regressions
