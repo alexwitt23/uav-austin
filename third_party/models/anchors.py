@@ -139,7 +139,7 @@ class AnchorGenerator(torch.nn.Module):
             grid_sizes, self.strides, self.anchors_per_cell
         ):
             shift_x, shift_y = self._create_grid_offsets(
-                grid_size, stride, offset=0.5, cuda=self.cuda
+                grid_size, stride, offset=0.5
             )
             shifts = torch.stack((shift_x, shift_y, shift_x, shift_y), dim=1)
 
@@ -150,7 +150,7 @@ class AnchorGenerator(torch.nn.Module):
         return anchors
 
     def _create_grid_offsets(
-        self, grid_size: List[int], stride: int, offset: float = 0.5, cuda: bool = False
+        self, grid_size: List[int], stride: int, offset: float = 0.5
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Function to create x, y positions for the anchor offsets on the original
         image.
@@ -158,7 +158,6 @@ class AnchorGenerator(torch.nn.Module):
             size: The height, width of the grid to create (in pixels).
             stride: The stride, or gap, between adjacent grid points.
             offset: The amount to offset the grid from (0, 0)
-            cuda: Wether the model is being used on gpu or not.
         Return:
             X and Y meshgrid coordinates for the grid. These values will be added to each
             anchor cell.
