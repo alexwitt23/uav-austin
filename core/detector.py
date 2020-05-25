@@ -1,6 +1,7 @@
 """ A detector model which wraps around a feature extraction backbone, fpn, and RetinaNet
 head.This allows for easy interchangeability during experimentation and a reliable way to
 load saved models. """
+import collections
 from typing import List
 import yaml
 
@@ -8,16 +9,25 @@ import torch
 import torchvision
 
 from core import pull_assets
+from third_party.efficientdet import bifpn, efficientnet
 from third_party.models import (
-    efficientdet, 
     vovnet, 
-    fpn, 
-    bifpn,    
+    fpn,    
     postprocess,
     regression,
     anchors,
     retinanet_head
 )
+
+_MODEL_SCALES = {
+    # (resolution, backbone, bifpn channels, num bifpn layers, head layers)
+    "efficientdet-b0": (512, "efficientnet-b0", 64, 3, 3),
+    "efficientdet-b1": (640, "efficientnet-b1", 88, 4, 3),
+    "efficientdet-b2": (768, "efficientnet-b2", 112, 5, 3),
+    "efficientdet-b3": (896, "efficientnet-b3", 160, 6, 4),
+    "efficientdet-b4": (1024, "efficientnet-b4", 224, 7, 4),
+    "efficientdet-b5": (1280, "efficientnet-b5", 288, 7, 4),
+}
 
 class Detector(torch.nn.Module):
     def __init__(
@@ -32,6 +42,7 @@ class Detector(torch.nn.Module):
         half_precision: bool = False,
         num_detections_per_image: int = 3,
         confidence: float = 0.01,
+        levels: List[int] = [3, 4, 5, 6, 7]
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -41,6 +52,7 @@ class Detector(torch.nn.Module):
         self.half_precision = half_precision
         self.num_detections_per_image = num_detections_per_image
         self.confidence = confidence
+        self.levels = levels
 
         if backbone is None and version is None:
             raise ValueError("Must supply either model version or backbone to load")
@@ -60,7 +72,7 @@ class Detector(torch.nn.Module):
         else:
             # If no version supplied, just load the backbone
             self.backbone = self._load_backbone(backbone)
-            self.fpn = self._load_fpn(fpn_name, self.backbone.get_pyramid_channels())
+            self.fpn = self._load_fpn(fpn_name, self.backbone.get_pyramid_channels(), _MODEL_SCALES["efficientdet-b0"])
 
         self.anchors = anchors.AnchorGenerator(
             img_height=img_height,
@@ -92,33 +104,19 @@ class Detector(torch.nn.Module):
             max_detections_per_image=num_detections_per_image,
             score_threshold=confidence,
         )
-            
         self.eval()
 
     def _load_backbone(self, backbone: str) -> torch.nn.Module:
         """ Load the supplied backbone. """
         if "efficientdet" in backbone:
-            model = efficientdet.EfficientDet(
-                backbone=backbone,
-                num_classes=self.num_classes,
-                use_cuda=self.use_cuda,
-                num_detections_per_image=self.num_detections_per_image,
-                score_threshold=self.confidence,
+            model = efficientnet.EfficientNet(
+                backbone=_MODEL_SCALES[backbone][1],
+                num_classes=self.num_classes
             )
         elif backbone == "resnet18":
             model = efficientdet.EfficientDet(
                 backbone=backbone,
-                num_classes=self.num_classes,
-                use_cuda=self.use_cuda,
-                num_detections_per_image=self.num_detections_per_image,
-                score_threshold=self.confidence,
-            )
-        elif backbone == "resnet34":
-            model = efficientdet.EfficientDet(
-                backbone=backbone,
-                num_classes=self.num_classes,
-                use_cuda=self.use_cuda,
-                num_detections_per_image=self.num_detections_per_image,
+                num_classes=self.num_classes
             )
         elif "vovnet" in backbone:
             model = vovnet.VoVNet("V-19-slim-dw-eSE")
@@ -127,11 +125,11 @@ class Detector(torch.nn.Module):
 
         return model
 
-    def _load_fpn(self, fpn_name: str, features: List[int]) -> torch.nn.Module:
+    def _load_fpn(self, fpn_name: str, features: List[int], params: str = None) -> torch.nn.Module:
         if "retinanet" in fpn_name:
             fpn_ = fpn.FPN(in_channels=features[-3 :], out_channels=64)
         elif "bifpn" in fpn_name:
-            fpn_ = BiFPN.BiFPN(
+            fpn_ = bifpn.BiFPN(
                 in_channels=features,
                 out_channels=params[2],
                 num_bifpns=params[3],
@@ -141,7 +139,11 @@ class Detector(torch.nn.Module):
         return fpn_
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        levels = list(self.backbone.forward_pyramids(x).values())[-3 :]
+        levels = self.backbone.forward_pyramids(x)
+        # Only keep the levels specified during construction.
+        levels = collections.OrderedDict(
+            [item for item in levels.items() if item[0] in self.levels]
+        )
         levels = self.fpn(levels)
         classifications, regressions = self.retinanet_head(levels)
 

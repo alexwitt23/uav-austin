@@ -46,7 +46,7 @@ class AnchorGenerator(torch.nn.Module):
         self.img_width = img_width
         self.cuda = use_cuda
         self.aspect_ratios = [0.5, 1, 2]
-        self.sizes = [2 ** (level + 1) for level in pyramid_levels]
+        self.sizes = [2 ** (level + 2) for level in pyramid_levels]
         self.strides = [2 ** level for level in pyramid_levels]
 
         # Generate all anchors based on the sizes, aspect ratios, and scales. We

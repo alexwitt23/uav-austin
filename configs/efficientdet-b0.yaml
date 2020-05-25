@@ -1,7 +1,7 @@
 model:
   type: "detection"
   backbone: "efficientdet-b0"
-  fpn: "retinanet"
+  fpn: "bifpn"
 training:
   optimizer: 
     type: "SGD"
@@ -10,7 +10,7 @@ training:
     weight_decay: 1e-5
   epochs: 100
   gpu: True
-  train_batch_size: 40
+  train_batch_size: 15
   eval_batch_size: 25
   save_best: True
   
