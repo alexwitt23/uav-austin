@@ -1,274 +1,203 @@
-# Copyright (c) Youngwan Lee (ETRI) All Rights Reserved.
-from collections import OrderedDict
-import torch
+""" Adapted from the original implementation. """
+
+import collections
 from typing import List
 
-_NORM = False
+import torch
 
-VoVNet19_slim_dw_eSE = {
-    "stem": [64, 64, 64],
+VoVNet19_slim_dw = {
+    "stem_out": 64,
     "stage_conv_ch": [64, 80, 96, 112],
     "stage_out_ch": [112, 256, 384, 512],
     "layer_per_block": 3,
     "block_per_stage": [1, 1, 1, 1],
-    "eSE": True,
     "dw": True,
 }
 
-VoVNet19_dw_eSE = {
-    "stem": [64, 64, 64],
+VoVNet19_dw = {
+    "stem_out": 64,
     "stage_conv_ch": [128, 160, 192, 224],
     "stage_out_ch": [256, 512, 768, 1024],
     "layer_per_block": 3,
     "block_per_stage": [1, 1, 1, 1],
-    "eSE": True,
     "dw": True,
 }
 
-VoVNet19_slim_eSE = {
-    "stem": [64, 64, 128],
+VoVNet19_slim = {
+    "stem_out": 128,
     "stage_conv_ch": [64, 80, 96, 112],
     "stage_out_ch": [112, 256, 384, 512],
     "layer_per_block": 3,
     "block_per_stage": [1, 1, 1, 1],
-    "eSE": True,
     "dw": False,
 }
 
-VoVNet19_eSE = {
-    "stem": [64, 64, 128],
+VoVNet19 = {
+    "stem_out": 128,
     "stage_conv_ch": [128, 160, 192, 224],
     "stage_out_ch": [256, 512, 768, 1024],
     "layer_per_block": 3,
     "block_per_stage": [1, 1, 1, 1],
-    "eSE": True,
     "dw": False,
 }
 
-VoVNet39_eSE = {
-    "stem": [64, 64, 128],
+VoVNet39 = {
+    "stem_out": 128,
     "stage_conv_ch": [128, 160, 192, 224],
     "stage_out_ch": [256, 512, 768, 1024],
     "layer_per_block": 5,
     "block_per_stage": [1, 1, 2, 2],
-    "eSE": True,
     "dw": False,
 }
 
-VoVNet57_eSE = {
-    "stem": [64, 64, 128],
+VoVNet57 = {
+    "stem_out": 128,
     "stage_conv_ch": [128, 160, 192, 224],
     "stage_out_ch": [256, 512, 768, 1024],
     "layer_per_block": 5,
-    "block_per_stage": [1, 1, 4, 3],
-    "eSE": True,
     "dw": False,
 }
 
-VoVNet99_eSE = {
-    "stem": [64, 64, 128],
+VoVNet99 = {
+    "stem_out": 128,
     "stage_conv_ch": [128, 160, 192, 224],
     "stage_out_ch": [256, 512, 768, 1024],
     "layer_per_block": 5,
     "block_per_stage": [1, 3, 9, 3],
-    "eSE": True,
     "dw": False,
 }
 
 _STAGE_SPECS = {
-    "V-19-slim-dw-eSE": VoVNet19_slim_dw_eSE,
-    "V-19-dw-eSE": VoVNet19_dw_eSE,
-    "V-19-slim-eSE": VoVNet19_slim_eSE,
-    "V-19-eSE": VoVNet19_eSE,
-    "V-39-eSE": VoVNet39_eSE,
-    "V-57-eSE": VoVNet57_eSE,
-    "V-99-eSE": VoVNet99_eSE,
+    "vovnet-19-slim-dw": VoVNet19_slim_dw,
+    "vovnet-19-dw": VoVNet19_dw,
+    "vovnet-19-slim": VoVNet19_slim,
+    "vovnet-19": VoVNet19,
+    "vovnet-39": VoVNet39,
+    "vovnet-57": VoVNet57,
+    "vovnet-99": VoVNet99,
 }
 
 
-def dw_conv3x3(
+def dw_conv(
+    in_channels: int,
+    out_channels: int
+) -> List[torch.nn.Module]:
+    """ Depthwise separable pointwise linear convolution. """
+    return [
+        torch.nn.Conv2d(
+            in_channels,
+            in_channels,
+            kernel_size=3,
+            padding=1,
+            groups=in_channels,
+            bias=False,
+        ),
+        torch.nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            groups=1,
+            bias=False,
+        ),
+        torch.nn.BatchNorm2d(out_channels),
+        torch.nn.ReLU(inplace=True),
+    ]
+
+
+def conv(
     in_channels: int,
     out_channels: int,
-    module_name: int,
-    postfix: int,
     stride: int = 1,
+    groups: int = 1,
     kernel_size: int = 3,
     padding: int = 1,
-):
-    """ 3x3 depthwise separable, pointwise linear convolution with padding. """
+) -> List[torch.nn.Module]:
+    """ 3x3 convolution with padding """
     return [
-        (
-            "{}_{}/dw_conv3x3".format(module_name, postfix),
-            torch.nn.Conv2d(
-                in_channels,
-                out_channels,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=padding,
-                groups=out_channels,
-                bias=False,
-            ),
+        torch.nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=groups,
+            bias=False,
         ),
-        (
-            "{}_{}/pw_conv1x1".format(module_name, postfix),
-            torch.nn.Conv2d(
-                in_channels,
-                out_channels,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-                groups=1,
-                bias=False,
-            ),
-        ),
-        ("{}_{}/pw_norm".format(module_name, postfix), torch.nn.BatchNorm2d(out_channels)),
-        ("{}_{}/pw_relu".format(module_name, postfix), torch.nn.ReLU(inplace=True)),
+        torch.nn.BatchNorm2d(out_channels),
+        torch.nn.ReLU(inplace=True),
     ]
 
 
-def conv3x3(
-    in_channels,
-    out_channels,
-    module_name,
-    postfix,
-    stride=1,
-    groups=1,
-    kernel_size=3,
-    padding=1,
-):
-    """3x3 convolution with padding"""
+def pointwise(in_channels: int, out_channels: int) -> List[torch.nn.Module]:
+    """ Pointwise convolution. """
     return [
-        (
-            f"{module_name}_{postfix}/conv",
-            torch.nn.Conv2d(
-                in_channels,
-                out_channels,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=padding,
-                groups=groups,
-                bias=False,
-            ),
-        ),
-        (f"{module_name}_{postfix}/norm", torch.nn.BatchNorm2d(out_channels)),
-        (f"{module_name}_{postfix}/relu", torch.nn.ReLU(inplace=True)),
+        torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False),
+        torch.nn.BatchNorm2d(out_channels),
+        torch.nn.ReLU(inplace=True),
     ]
 
 
-def conv1x1(
-    in_channels,
-    out_channels,
-    module_name,
-    postfix,
-    stride=1,
-    groups=1,
-    kernel_size=1,
-    padding=0,
-):
-    """1x1 convolution with padding"""
-    return [
-        (
-            f"{module_name}_{postfix}/conv",
-            torch.nn.Conv2d(
-                in_channels,
-                out_channels,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=padding,
-                groups=groups,
-                bias=False,
-            ),
-        ),
-        (f"{module_name}_{postfix}/norm", torch.nn.BatchNorm2d(out_channels)),
-        (f"{module_name}_{postfix}/relu", torch.nn.ReLU(inplace=True)),
-    ]
-
-
-class Hsigmoid(torch.nn.Module):
-    """ A modified sigmoid that removes computational complexity by modeling the
-    transcendental function as piecewise linear. """
-
-    def __init__(self) -> None:
-        super().__init__()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.nn.functional.relu6(x + 3.0, inplace=True) / 6.0
-
-
-class eSEModule(torch.nn.Module):
+class eSE(torch.nn.Module):
     """ This is adapted from the efficientnet Squeeze Excitation. The idea is not 
     squeezing the number of channels keeps more information. """
+
     def __init__(self, channel: int) -> None:
         super().__init__()
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
-        self.fc = torch.nn.Conv2d(channel, channel, kernel_size=1, padding=0)
-        self.hsigmoid = Hsigmoid()
+        self.fc = torch.nn.Conv2d(channel, channel, kernel_size=1, padding=0)  # (Linear)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.avg_pool(x)
-        out = self.fc(x)
-        out = self.hsigmoid(x)
+        out = self.fc(out)
+        out = torch.nn.functional.relu6(out + 3.0, inplace=True) / 6.0
         return out * x
 
 
-class _OSA_module(torch.nn.Module):
+class OSA(torch.nn.Module):
     def __init__(
         self,
-        in_ch,
-        stage_ch,
-        concat_ch,
-        layer_per_block,
-        module_name,
-        SE=False,
-        identity=False,
-        depthwise=False,
-    ):
+        in_channels: int,
+        stage_channels: int,
+        concat_channels: int,
+        layer_per_block: int,
+        SE: bool = False,
+        identity: bool = False,
+        conv_op = conv,
+    ) -> None:
 
         super().__init__()
-
+        original_channels = in_channels
         self.identity = identity
-        self.depthwise = depthwise
-        self.isReduced = False
+        self.depthwise = type(conv_op) == dw_conv
+        self.isReduced = self.depthwise and in_channels != stage_channels
         self.layers = torch.nn.ModuleList()
-        in_channel = in_ch
-        if self.depthwise and in_channel != stage_ch:
+
+        if self.depthwise and in_channels != stage_channels:
             self.isReduced = True
             self.conv_reduction = torch.nn.Sequential(
-                OrderedDict(
-                    conv1x1(
-                        in_channel, stage_ch, "{}_reduction".format(module_name), "0"
-                    )
+                *pointwise(in_channels, stage_channels)
+            )
+        for _ in range(layer_per_block):
+            self.layers.append(
+                torch.nn.Sequential(
+                    *conv_op(in_channels, stage_channels)
                 )
             )
-        for i in range(layer_per_block):
-            if self.depthwise:
-                self.layers.append(
-                    torch.nn.Sequential(
-                        OrderedDict(dw_conv3x3(stage_ch, stage_ch, module_name, i))
-                    )
-                )
-            else:
-                self.layers.append(
-                    torch.nn.Sequential(
-                        OrderedDict(conv3x3(in_channel, stage_ch, module_name, i))
-                    )
-                )
-            in_channel = stage_ch
+            in_channels = stage_channels
 
         # feature aggregation
-        in_channel = in_ch + layer_per_block * stage_ch
-        self.concat = torch.nn.Sequential(
-            OrderedDict(conv1x1(in_channel, concat_ch, module_name, "concat"))
-        )
+        aggregated = original_channels + layer_per_block * stage_channels
+        self.concat = torch.nn.Sequential(*pointwise(aggregated, concat_channels))
+        self.ese = eSE(concat_channels)
 
-        self.ese = eSEModule(concat_ch)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
 
-    def forward(self, x):
+        if self.identity:
+            identity_feat = x
 
-        identity_feat = x
-
-        output = []
-        output.append(x)
+        output = [x]
         if self.depthwise and self.isReduced:
             x = self.conv_reduction(x)
         for layer in self.layers:
@@ -289,16 +218,15 @@ class _OSA_module(torch.nn.Module):
 class _OSA_stage(torch.nn.Sequential):
     def __init__(
         self,
-        in_ch,
-        stage_ch,
-        concat_ch,
-        block_per_stage,
-        layer_per_block,
-        stage_num,
-        SE=False,
-        depthwise=False,
-    ):
-
+        in_ch: int,
+        stage_ch: int,
+        concat_ch: int,
+        block_per_stage: int,
+        layer_per_block: int,
+        stage_num: int,
+        SE: bool = False,
+        depthwise: bool = False,
+    ) -> None:
         super().__init__()
 
         if not stage_num == 2:
@@ -308,114 +236,129 @@ class _OSA_stage(torch.nn.Sequential):
 
         if block_per_stage != 1:
             SE = False
-        module_name = f"OSA{stage_num}_1"
+
         self.add_module(
-            module_name,
-            _OSA_module(
+            f"OSA{stage_num}_1",
+            OSA(
                 in_ch,
                 stage_ch,
                 concat_ch,
                 layer_per_block,
-                module_name,
                 SE,
-                depthwise=depthwise,
+                conv_op=depthwise,
             ),
         )
         for i in range(block_per_stage - 1):
             if i != block_per_stage - 2:  # last block
                 SE = False
-            module_name = f"OSA{stage_num}_{i + 2}"
+
             self.add_module(
-                module_name,
-                _OSA_module(
+                f"OSA{stage_num}_{i + 2}",
+                OSA(
                     concat_ch,
                     stage_ch,
                     concat_ch,
                     layer_per_block,
-                    module_name,
                     SE,
                     identity=True,
-                    depthwise=depthwise,
+                    conv_op=depthwise,
                 ),
             )
 
 
-class VoVNet(torch.nn.Module):
-    def __init__(self, model_name: str, input_ch: int = 3) -> None:
+class VoVNet(torch.nn.Sequential):
+    def __init__(
+        self, model_name: str, num_classes: int = 10, input_channels: int = 3
+    ) -> None:
         """
         Args:
-            input_ch(int) : the number of input channel
-            out_features (list[str]): name of the layers whose outputs should
-                be returned in forward. Can be anything in "stem", "stage2" ...
+            model_name: Which model to create.
+            num_classes: The number of classification classes.
+            input_channels: The number of input channels.
+        Usage:
+        >>> net = VoVNet("vovnet-19-slim-dw", num_classes=10)
+        >>> with torch.no_grad():
+        ...    out = net(torch.randn(1, 3, 512, 512))
+        >>> print(out.shape)
+        torch.Size([1, 10])
         """
         super().__init__()
-        self.model_name = model_name
-        stage_specs = _STAGE_SPECS[model_name]
+        assert model_name in _STAGE_SPECS, f"{model_name} not supported."
 
-        stem_ch = stage_specs["stem"]
-        config_stage_ch = stage_specs["stage_conv_ch"]
-        config_concat_ch = stage_specs["stage_out_ch"]
-        block_per_stage = stage_specs["block_per_stage"]
-        layer_per_block = stage_specs["layer_per_block"]
-        SE = stage_specs["eSE"]
-        depthwise = stage_specs["dw"]
+        self.model_name = model_name
+        stem_ch = _STAGE_SPECS[model_name]["stem_out"]
+        config_stage_ch = _STAGE_SPECS[model_name]["stage_conv_ch"]
+        config_concat_ch = _STAGE_SPECS[model_name]["stage_out_ch"]
+        block_per_stage = _STAGE_SPECS[model_name]["block_per_stage"]
+        layer_per_block = _STAGE_SPECS[model_name]["layer_per_block"]
+        SE = True
+        conv_type = dw_conv if _STAGE_SPECS[model_name]["dw"] else conv
 
         # Construct the stem.
-        conv_type = dw_conv3x3 if depthwise else conv3x3
-        stem = conv3x3(input_ch, stem_ch[0], "stem", "1", 2)
-        stem += conv_type(stem_ch[0], stem_ch[1], "stem", "2", 1)
-        stem += conv_type(stem_ch[1], stem_ch[2], "stem", "3", 2)
-        self.add_module("stem", torch.nn.Sequential((OrderedDict(stem))))
-        current_stride = 4
-        self._out_feature_strides = {"stem": current_stride, "stage2": current_stride}
-        self._out_feature_channels = {"stem": stem_ch[2]}
+        stem = conv(input_channels, 64)
+        stem += conv(64, 64)
+        stem += conv(64, stem_ch)
+        self.model = torch.nn.Sequential()
+        self.model.add_module("stem", torch.nn.Sequential(*stem))
+        self._out_feature_channels = [stem_ch]
 
-        stem_out_ch = [stem_ch[2]]
+        stem_out_ch = [stem_ch]
         in_ch_list = stem_out_ch + config_concat_ch[:-1]
-        # Add the OSA modules
-        self.stage_names = []
-        for i in range(4):  # num_stages
-            name = "%d" % (i + 2)  # stage 2 ... stage 5
-            self.stage_names.append(name)
-            self.add_module(
-                name,
+
+        # Add the OSA modules. Typically 4 modules.
+        for idx in range(len(config_stage_ch)):
+            self.model.add_module(
+                f"{(idx + 2)}",
                 _OSA_stage(
-                    in_ch_list[i],
-                    config_stage_ch[i],
-                    config_concat_ch[i],
-                    block_per_stage[i],
+                    in_ch_list[idx],
+                    config_stage_ch[idx],
+                    config_concat_ch[idx],
+                    block_per_stage[idx],
                     layer_per_block,
-                    i + 2,
+                    idx + 2,
                     SE,
-                    depthwise,
+                    conv_type,
                 ),
             )
 
-            self._out_feature_channels[name] = config_concat_ch[i]
-            if not i == 0:
-                self._out_feature_strides[name] = current_stride = int(
-                    current_stride * 2
-                )
+            self._out_feature_channels.append(config_concat_ch[idx])
 
-        # initialize weights
+        # Add the classification head.
+        self.model.add_module(
+            "classifier", 
+            torch.nn.Sequential(
+                torch.nn.BatchNorm2d(self._out_feature_channels[-1]),
+                torch.nn.AdaptiveAvgPool2d(1),
+                torch.nn.Flatten(),
+                torch.nn.Linear(self._out_feature_channels[-1], num_classes, bias=True)
+            )
+        )
+
+        # Initialize weights.
         self._initialize_weights()
 
     def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, torch.nn.Conv2d):
-                torch.nn.init.kaiming_normal_(m.weight)
+        for module in self.model.modules():
+            if isinstance(module, torch.nn.Conv2d):
+                torch.nn.init.kaiming_normal_(module.weight)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)
 
     def forward_pyramids(self, x: torch.Tensor) -> List[torch.Tensor]:
         """ A forward pass for detection where different pyramid levels
         are extracted. """
-        outputs = {}
-        x = self.stem(x)
-        for name in self.stage_names:
-            x = getattr(self, name)(x)
-            outputs[name] = x
-        return outputs
+        outputs = collections.OrderedDict()
+        for idx, block in enumerate(self.model.children()):
+            x = block(x)
+            outputs[idx] = x
+        return list(outputs.values())
 
-    def get_pyramid_channels(self) -> List[int]:
-        """"""
-        return _STAGE_SPECS[self.model_name]["stage_out_ch"]
-        
+    def get_feature_channels(self) -> List[int]:
+        """ Used for constructing object detectors. """
+        return self._out_feature_channels
+
+    def strip_classifier(self) -> None:
+        """ Deletes the "classifier" layers. Can only be called once. """
+        del self.model.classifier
+        self.has_classifier = False

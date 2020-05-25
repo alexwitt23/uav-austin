@@ -57,6 +57,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
             if use_cuda:
                 data = data.cuda()
+                print(data.shape)
                 labels = labels.cuda()
 
             out = clf_model(data)
@@ -122,8 +123,8 @@ def eval(
         "base": num_correct_base / len(eval_loader.dataset),
         "swa": num_correct_swa / len(eval_loader.dataset)
     }
-    """
-    if save_best and accuracy > previous_best:
+    
+    if save_best and accuracy["base"] > previous_best["base"]:
         print(f"Saving model with accuracy {accuracy:.5}.")
         # Delete thee previous best
         previous_best = save_dir / "classifier.pt"
@@ -131,7 +132,7 @@ def eval(
             previous_best.unlink()
 
         model_saver.save_model(clf_model.model, save_dir / "classifier.pt")
-    """
+    
     return accuracy
 
 
@@ -204,7 +205,7 @@ if __name__ == "__main__":
     # will be used to load the saved model.
     save_dir = None
     if save_best:
-        save_dir = _SAVE_DIR / (datetime.datetime.now().isoformat().split(".")[0])
+        save_dir = _SAVE_DIR / (datetime.datetime.now().isoformat().split(".")[0].replace(":", "."))
         save_dir.mkdir(exist_ok=True, parents=True)
         shutil.copy(config_path, save_dir / "config.yaml")
 
