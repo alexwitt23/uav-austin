@@ -6,7 +6,7 @@ import yaml
 import torch
 
 from core import pull_assets
-from third_party.models import efficientnet, resnet
+from third_party.models import efficientnet, resnet, vovnet
 
 
 class Classifier(torch.nn.Module):
@@ -73,6 +73,8 @@ class Classifier(torch.nn.Module):
             )
         elif backbone == "resnet18":
             model = resnet.resnet18(num_classes=self.num_classes)
+        elif "vovnet" in backbone:
+            model = vovnet.VoVNet(backbone, num_classes=self.num_classes)
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
 

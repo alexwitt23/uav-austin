@@ -1,7 +1,6 @@
 model:
-  type: "detection"
-  backbone: "vovnet"
-  fpn: "retinanet"
+  type: "classification"
+  backbone: "vovnet-19-slim-dw"
 training:
   optimizer: 
     type: "SGD"
@@ -10,7 +9,7 @@ training:
     weight_decay: 1e-5
   epochs: 3
   gpu: True
-  train_batch_size: 5
-  eval_batch_size: 64
+  batch_size: 10
+  eval_batch_size: 1
   save_best: True
   
