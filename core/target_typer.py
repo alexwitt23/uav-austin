@@ -5,7 +5,8 @@ import yaml
 import torch
 
 from core import pull_assets
-from third_party.models import resnet, efficientnet
+from third_party.efficientdet import efficientnet
+from third_party.models import vovnet
 
 
 class TargetTyper(torch.nn.Module):
@@ -50,10 +51,10 @@ class TargetTyper(torch.nn.Module):
 
     def _load_backbone(self, backbone: str) -> torch.nn.Module:
         """ Load the supplied backbone. """
-        if backbone == "efficientnet-b0":
+        if "efficientnet" in backbone:
             model = efficientnet.EfficientNet(backbone=backbone, num_classes=1)
-        elif backbone == "resnet18":
-            model = resnet.resnet18(num_classes=1)
+        elif "vovnet" in backbone:
+            model = vovnet.VoVNet(backbone, num_classes=1)
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
 

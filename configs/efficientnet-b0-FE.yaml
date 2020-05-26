@@ -1,6 +1,6 @@
 model:
   type: "feature_extractor"
-  backbone: "efficientnet-b0"
+  backbone: "efficientnet-b1"
   triplet-margin: 10
   image_width: 100
   image_height: 100
@@ -12,6 +12,6 @@ training:
     weight_decay: 1e-5
   epochs: 30
   gpu: true
-  batch_size: 75
+  batch_size: 25
   save_best: true
   

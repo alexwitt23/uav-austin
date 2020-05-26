@@ -78,9 +78,15 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         clf_model.eval()
         optimizer.update_bn(train_loader)
         eval_acc = eval(
-            clf_model, optimizer.swa_model, eval_loader, use_cuda, save_best, highest_score, save_dir
+            clf_model,
+            optimizer.swa_model,
+            eval_loader,
+            use_cuda,
+            save_best,
+            highest_score,
+            save_dir,
         )
-        #highest_score = eval_acc if eval_acc > highest_score else highest_score
+        # highest_score = eval_acc if eval_acc > highest_score else highest_score
         clf_model.train()
 
         print(
@@ -121,9 +127,9 @@ def eval(
 
     accuracy = {
         "base": num_correct_base / len(eval_loader.dataset),
-        "swa": num_correct_swa / len(eval_loader.dataset)
+        "swa": num_correct_swa / len(eval_loader.dataset),
     }
-    
+
     if save_best and accuracy["base"] > previous_best["base"]:
         print(f"Saving model with accuracy {accuracy:.5}.")
         # Delete thee previous best
@@ -132,7 +138,7 @@ def eval(
             previous_best.unlink()
 
         model_saver.save_model(clf_model.model, save_dir / "classifier.pt")
-    
+
     return accuracy
 
 
@@ -205,7 +211,9 @@ if __name__ == "__main__":
     # will be used to load the saved model.
     save_dir = None
     if save_best:
-        save_dir = _SAVE_DIR / (datetime.datetime.now().isoformat().split(".")[0].replace(":", "."))
+        save_dir = _SAVE_DIR / (
+            datetime.datetime.now().isoformat().split(".")[0].replace(":", ".")
+        )
         save_dir.mkdir(exist_ok=True, parents=True)
         shutil.copy(config_path, save_dir / "config.yaml")
 

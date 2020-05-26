@@ -62,7 +62,7 @@ def generate_all_images(gen_type: str, num_gen: int, offset: int = 0) -> None:
     random.shuffle(combinations)
 
     # Assume that 0 combinations means all
-    _NUM_COMBINATIONS = 1000
+    _NUM_COMBINATIONS = 3000
     if _NUM_COMBINATIONS == 0:
         _NUM_COMBINATIONS = len(combinations)
 
@@ -116,7 +116,7 @@ def generate_all_images(gen_type: str, num_gen: int, offset: int = 0) -> None:
             )
         )
     # Put everything into one large iterable so that we can split up
-    # data across thread pools.ImageFile.LOAD_TRUNCATED_IMAGES = True
+    # data across thread pools.
     data = zip(
         numbers, backgrounds, crop_xs, crop_ys, shape_params, [gen_type] * num_gen,
     )
@@ -132,7 +132,7 @@ def generate_all_images(gen_type: str, num_gen: int, offset: int = 0) -> None:
 
 def generate_single_example(data: zip) -> None:
     """Creates a single full image"""
-    (number, background, crop_x, crop_y, shape_params, gen_type,) = data
+    (number, background, crop_x, crop_y, shape_params, gen_type) = data
     data_path = config.DATA_DIR / gen_type
 
     background = background.copy()
@@ -161,6 +161,16 @@ def add_shapes(
         bg_at_shape = background.crop((x1 + x, y1 + y, x2 + x, y2 + y))
         bg_at_shape.paste(shape_img, (0, 0), shape_img)
         background.paste(bg_at_shape, (x, y))
+        # Slightly expand the bounding box in order to simulate variability with
+        # the detection boxes. Always make the crop larger than needed because training
+        # augmentations will only be able to crop down.
+        dx = random.randint(0, int(0.1 * (x2 - x1)))
+        dy = random.randint(0, int(0.1 * (y2 - y1)))
+        x1 -= dx
+        x2 += dx
+        y1 -= dy
+        y2 += dy
+
         background = background.crop((x1 + x, y1 + y, x2 + x, y2 + y))
         background = background.filter(ImageFilter.SMOOTH_MORE)
     return background.convert("RGB")
@@ -203,8 +213,6 @@ def create_shape(
     y,
 ) -> PIL.Image.Image:
     """Create a shape given all the input parameters"""
-    target_rgb = augment_color(target_rgb)
-    alpha_rgb = augment_color(alpha_rgb)
 
     image = get_base(base, target_rgb, size)
     image = strip_image(image)
@@ -218,15 +226,6 @@ def create_shape(
     image = strip_image(image)
     img_name = f"{shape}_{target_color}_{alpha}_{alpha_color}_{angle}"
     return image, img_name
-
-
-def augment_color(color_rgb):
-    """Shift the color a bit"""
-    r, g, b = color_rgb
-    # r = max(min(r + random.randint(-10, 11), 255), 1)
-    # g = max(min(g + random.randint(-10, 11), 255), 1)
-    # b = max(min(b + random.randint(-10, 11), 255), 1)
-    return (r, g, b)
 
 
 def get_base(base, target_rgb, size):

@@ -138,9 +138,7 @@ class AnchorGenerator(torch.nn.Module):
         for grid_size, stride, base_anchors in zip(
             grid_sizes, self.strides, self.anchors_per_cell
         ):
-            shift_x, shift_y = self._create_grid_offsets(
-                grid_size, stride, offset=0.5
-            )
+            shift_x, shift_y = self._create_grid_offsets(grid_size, stride, offset=0.5)
             shifts = torch.stack((shift_x, shift_y, shift_x, shift_y), dim=1)
 
             anchors.append(

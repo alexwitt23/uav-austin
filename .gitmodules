@@ -1,3 +1,6 @@
 [submodule "third_party/efficientdet"]
 	path = third_party/efficientdet
 	url = https://github.com/alexwitt2399/efficientdet
+[submodule "third_party/vovnet"]
+	path = third_party/vovnet
+	url = git@github.com:alexwitt2399/vovnet.git

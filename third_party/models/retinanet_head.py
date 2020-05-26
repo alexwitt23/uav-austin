@@ -139,7 +139,11 @@ class RetinaNetHead(torch.nn.Module):
         """ Applies the regression and classification subnets to each of the
         incoming feature maps. """
 
-        bbox_regressions = [self.regression_subnet(level) for level in feature_maps.values()]
-        classifications = [self.classification_subnet(level) for level in feature_maps.values()]
+        bbox_regressions = [
+            self.regression_subnet(level) for level in feature_maps.values()
+        ]
+        classifications = [
+            self.classification_subnet(level) for level in feature_maps.values()
+        ]
 
         return classifications, bbox_regressions

@@ -26,7 +26,7 @@ _SAVE_DIR = pathlib.Path("~/runs/uav-feature-extractor").expanduser()
 
 def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path):
 
-    train_batch_size = train_cfg.get("train_batch_size", 8)
+    train_batch_size = train_cfg.get("batch_size", 8)
     train_loader = create_data_loader(
         train_cfg, generate_config.DATA_DIR / "combinations_train", train_batch_size,
     )
@@ -71,16 +71,16 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path):
             optim.step()
 
         model.eval()
-        accuracy = eval(model, eval_loader)
+        eval_accuracy = eval(model, eval_loader)
         model.train()
 
-        if accuracy > highest_score:
+        if eval_accuracy > highest_score:
             model_saver.save_model(model.model, save_dir / "feature_extractor.pt")
-            highest_score = accuracy
+            highest_score = eval_accuracy
 
         print(
-            f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5}, "
-            f"Eval accuracy: {eval_acc:.4}"
+            f"Epoch: {epoch}, Training loss {sum(losses) / len(losses):.5}, "
+            f"Eval accuracy: {eval_accuracy:.4}"
         )
 
 
@@ -118,26 +118,21 @@ def create_data_loader(
     assert data_dir.is_dir(), data_dir
 
     dataset = datasets.TargetDataset(
-        pathlib.Path("data_generation/data/combinations_train"),
-        img_ext=config.IMAGE_EXT,
-        img_width=90,
-        img_height=90,
-        classes=classes,
+        data_dir, img_ext=generate_config.IMAGE_EXT, img_width=90, img_height=90
     )
-    train_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=500, pin_memory=True, shuffle=True, num_workers=4
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, pin_memory=True, shuffle=True, num_workers=4
     )
     return loader
 
-    dataset = datasets.TargetDataset(
-        pathlib.Path("data_generation/data/combinations_val"),
-        img_ext=config.IMAGE_EXT,
-        img_width=90,
-        img_height=90,
-        classes=classes,
-    )
-    eval_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=500, pin_memory=True, shuffle=True, num_workers=4
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Code to train a target typing model.")
+    parser.add_argument(
+        "--model_config",
+        type=pathlib.Path,
+        required=True,
+        help="path to the model to train.",
     )
     args = parser.parse_args()
 
