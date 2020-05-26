@@ -72,7 +72,7 @@ class Detector(torch.nn.Module):
         else:
             # If no version supplied, just load the backbone
             self.backbone = self._load_backbone(backbone)
-            self.fpn = self._load_fpn(fpn_name, self.backbone.get_pyramid_channels(), _MODEL_SCALES["efficientdet-b0"])
+            self.fpn = self._load_fpn(fpn_name, self.backbone.get_pyramid_channels(), _MODEL_SCALES["efficientdet-b1"])
 
         self.anchors = anchors.AnchorGenerator(
             img_height=img_height,
@@ -86,8 +86,7 @@ class Detector(torch.nn.Module):
             num_classes,
             in_channels=64,
             anchors_per_cell=self.anchors.num_anchors_per_cell,
-            num_convolutions=4,
-            dropout=0.2,
+            num_convolutions=4
         )
 
         if self.use_cuda:
@@ -111,11 +110,6 @@ class Detector(torch.nn.Module):
         if "efficientdet" in backbone:
             model = efficientnet.EfficientNet(
                 backbone=_MODEL_SCALES[backbone][1],
-                num_classes=self.num_classes
-            )
-        elif backbone == "resnet18":
-            model = efficientdet.EfficientDet(
-                backbone=backbone,
                 num_classes=self.num_classes
             )
         elif "vovnet" in backbone:

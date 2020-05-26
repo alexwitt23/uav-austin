@@ -1,11 +1,11 @@
 model:
   type: "detection"
-  backbone: "efficientdet-b0"
+  backbone: "efficientdet-b1"
   fpn: "bifpn"
 training:
   optimizer: 
     type: "SGD"
-    lr: 1e-5
+    lr: 1e-4
     momentum: 0.9
     weight_decay: 1e-5
   epochs: 100
