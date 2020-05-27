@@ -6,7 +6,9 @@ import yaml
 import torch
 
 from core import pull_assets
-from third_party.models import efficientnet, resnet, vovnet
+from third_party.models import resnet
+from third_party.efficientdet import efficientnet
+from third_party.vovnet import vovnet
 
 
 class Classifier(torch.nn.Module):

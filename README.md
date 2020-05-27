@@ -40,3 +40,6 @@ PYTHONPATH=$(pwd) train/train_clf.py \
 
 ## Testing
 Testing is performed by running `tox` at the repo root. The test in this repo consist of python unittests and doctests.
+
+#### Other
+Updating submodules: `git submodule update --remote --merge`
