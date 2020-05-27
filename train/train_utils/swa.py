@@ -11,8 +11,8 @@ class SWA(torch.optim.Optimizer):
         self,
         optimizer: torch.optim.Optimizer,
         model: torch.nn.Module,
-        swa_start: int = 5,
-        swa_frequency: int = 5,
+        start_swa: int,
+        swa_frequency: int = 1,
     ) -> None:
         """ Implementation of Stochastic Weight Averaging (SWA) based on the paper
         `Averaging Weights Leads to Wider Optima and Better Generalization`_ by Pavel
@@ -27,7 +27,7 @@ class SWA(torch.optim.Optimizer):
             swa_frequency: After how many optimizer steps to update the weights after 
                 :swa_start: is reached.
         """
-        self.swa_start = swa_start
+        self.start_swa = start_swa
         self.swa_frequency = swa_frequency
         self.optimizer = optimizer
         self.param_groups = self.optimizer.param_groups
@@ -42,27 +42,29 @@ class SWA(torch.optim.Optimizer):
         self.step_counter = 0
         self.n_avg = 0
 
-    def step(self) -> None:
+    def step(self, lr: float, step: int) -> None:
         """ Performs the optimization step for SWA and the original optimizer. """
         # Update the base model's weights.
         self.optimizer.step()
         self.step_counter += 1
         # Update if past starting amount of steps and start of new cycle.
         if (
-            self.step_counter > self.swa_start
+            step > self.start_swa
             and self.step_counter % self.swa_frequency == 0
         ):
             self._update_swa_model()
+
+        for param_group in self.param_groups:
+            param_group['lr'] = lr
 
     def _update_swa_model(self) -> None:
         """ Loop over all the layers from the non-swa model and update their SWA 
         counterparts. """
         with torch.no_grad():
-            for layer_id, layer_weights in self.model.model.state_dict().items():
-                swa_layer = self.swa_model.model.state_dict()[layer_id]
-                swa_layer += (swa_layer * self.n_avg + layer_weights.cpu()) / (
-                    self.n_avg + 1
-                )
+            for swa_weights, base_weights in zip(self.swa_model.parameters(), self.model.model.parameters()):
+                #swa_layer = self.swa_model.model.state_dict()[layer_id]
+                swa_weights *= (1.0 - 1.0 / (self.n_avg + 1.0))
+                swa_weights += base_weights.cpu() * (self.n_avg + 1)
 
         self.n_avg += 1
 

@@ -12,7 +12,7 @@ import yaml
 import torch
 
 from train import datasets
-from train.train_utils import model_saver, swa
+from train.train_utils import utils, swa
 from core import classifier
 from data_generation import generate_config
 
@@ -29,7 +29,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     use_cuda = train_cfg.get("gpu", False)
     save_best = train_cfg.get("save_best", False)
     if save_best:
-        highest_score = {}
+        highest_score = {"base": 0, "swa": 0}
 
     clf_model = classifier.Classifier(
         backbone=model_cfg.get("backbone", None),
@@ -43,17 +43,18 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         clf_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], clf_model)
-    optimizer = swa.SWA(optimizer, clf_model)
+    optimizer = swa.SWA(optimizer, clf_model, start_swa=(0.9 * len(train_loader)))
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
 
     loss_fn = torch.nn.CrossEntropyLoss()
-
+    global_step = 0
     for epoch in range(epochs):
 
         all_losses = []
         for idx, (data, labels) in enumerate(train_loader):
             optimizer.zero_grad()
+            global_step += 1
 
             if use_cuda:
                 data = data.cuda()
@@ -65,7 +66,8 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             # Compute the gradient throughout the model graph
             losses.backward()
             # Perform the weight updates
-            optimizer.step()
+            lr = utils.swa_lr_decay(global_step, (len(train_loader) - 1) * 2, 1e-2, 1e-4)
+            optimizer.step(lr, idx)
 
             if idx % _LOG_INTERVAL == 0:
                 lr = optimizer.param_groups[0]["lr"]
@@ -74,9 +76,9 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                 )
 
         # Call evaluation function
-        clf_model.eval()
+        clf_model.eval() 
         optimizer.update_bn(train_loader)
-        eval_acc = eval(
+        highest_score = eval_acc = eval(
             clf_model,
             optimizer.swa_model,
             eval_loader,
@@ -85,7 +87,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             highest_score,
             save_dir,
         )
-        # highest_score = eval_acc if eval_acc > highest_score else highest_score
+        optimizer.swa_model.cpu() 
         clf_model.train()
 
         print(
@@ -106,8 +108,8 @@ def eval(
 ) -> float:
     """ Evalulate the model against the evaulation set. Save the best 
     weights if specified. """
+    num_correct_base, num_correct_swa, total_num = 0, 0, 0
     swa_model.cuda()
-    num_correct_base, num_correct_swa = 0, 0
     with torch.no_grad():
         for data, labels in eval_loader:
             if torch.cuda.is_available():
@@ -122,23 +124,27 @@ def eval(
 
             num_correct_base += (predicted_base == labels).sum().item()
             num_correct_swa += (predicted_swa == labels).sum().item()
+            total_num += data.shape[0]
+
     swa_model.cpu()
 
     accuracy = {
-        "base": num_correct_base / len(eval_loader.dataset),
-        "swa": num_correct_swa / len(eval_loader.dataset),
+        "base": num_correct_base /  total_num,
+        "swa": num_correct_swa /  total_num,
     }
-    """
-    if save_best and accuracy["base"] > previous_best["base"]:
-        print(f"Saving model with accuracy {accuracy:.5}.")
+    
+    if save_best and accuracy["swa"] > previous_best["swa"] or accuracy["base"] > previous_best["base"]:
+        print(f"Saving model with accuracy {accuracy}.")
         # Delete thee previous best
         previous_best = save_dir / "classifier.pt"
         if previous_best.is_file():
             previous_best.unlink()
 
-        model_saver.save_model(clf_model.model, save_dir / "classifier.pt")
-    """
-    return accuracy
+        utils.save_model(swa_model.model, save_dir / "classifier.pt")
+    
+        return accuracy
+    else:
+        return previous_best
 
 
 def create_data_loader(
