@@ -1,7 +1,7 @@
 """ Taken from https://pytorch.org/blog/stochastic-weight-averaging-in-pytorch/ but
 cleaned up a little bit for readibility. """
 
-import copy 
+import copy
 
 import torch
 
@@ -49,8 +49,8 @@ class SWA(torch.optim.Optimizer):
         self.step_counter += 1
         # Update if past starting amount of steps and start of new cycle.
         if (
-            self.step_counter > self.swa_start and
-            self.step_counter % self.swa_frequency == 0
+            self.step_counter > self.swa_start
+            and self.step_counter % self.swa_frequency == 0
         ):
             self._update_swa_model()
 
@@ -60,8 +60,10 @@ class SWA(torch.optim.Optimizer):
         with torch.no_grad():
             for layer_id, layer_weights in self.model.model.state_dict().items():
                 swa_layer = self.swa_model.model.state_dict()[layer_id]
-                swa_layer += (swa_layer * self.n_avg + layer_weights.cpu()) / (self.n_avg + 1)
-            
+                swa_layer += (swa_layer * self.n_avg + layer_weights.cpu()) / (
+                    self.n_avg + 1
+                )
+
         self.n_avg += 1
 
     def update_bn(self, loader: torch.utils.data.DataLoader) -> None:
@@ -90,6 +92,7 @@ class SWA(torch.optim.Optimizer):
         self.swa_model.cpu()
         self.swa_model.eval()
 
+
 def reset_bn(module):
     if issubclass(module.__class__, torch.nn.modules.batchnorm._BatchNorm):
         module.running_mean = torch.zeros_like(module.running_mean)
@@ -104,4 +107,3 @@ def _get_momenta(module, momenta):
 def _set_momenta(module, momenta):
     if issubclass(module.__class__, torch.nn.modules.batchnorm._BatchNorm):
         module.momentum = momenta[module]
-

@@ -11,12 +11,11 @@ import torchvision
 from core import pull_assets
 from third_party.efficientdet import bifpn, efficientnet
 from third_party.models import (
-    vovnet, 
-    fpn,    
+    fpn,
     postprocess,
     regression,
     anchors,
-    retinanet_head
+    retinanet_head,
 )
 
 _MODEL_SCALES = {
@@ -28,6 +27,7 @@ _MODEL_SCALES = {
     "efficientdet-b4": (1024, "efficientnet-b4", 224, 7, 4),
     "efficientdet-b5": (1280, "efficientnet-b5", 288, 7, 4),
 }
+
 
 class Detector(torch.nn.Module):
     def __init__(
@@ -42,7 +42,7 @@ class Detector(torch.nn.Module):
         half_precision: bool = False,
         num_detections_per_image: int = 3,
         confidence: float = 0.01,
-        levels: List[int] = [3, 4, 5, 6, 7]
+        levels: List[int] = [3, 4, 5, 6, 7],
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -78,15 +78,15 @@ class Detector(torch.nn.Module):
             img_height=img_height,
             img_width=img_width,
             pyramid_levels=[3, 4, 5, 6, 7],
-            anchor_scales=[1.0, 1.2599, 1.5874]
+            anchor_scales=[1.0, 1.2599, 1.5874],
         )
 
         # Create the retinanet head.
         self.retinanet_head = retinanet_head.RetinaNetHead(
             num_classes,
-            in_channels=64,
+            in_channels=88,
             anchors_per_cell=self.anchors.num_anchors_per_cell,
-            num_convolutions=4
+            num_convolutions=3
         )
 
         if self.use_cuda:
@@ -95,7 +95,7 @@ class Detector(torch.nn.Module):
                 anchors.cuda() for anchors in self.anchors.anchors_over_all_feature_maps
             ]
             self.cuda()
-            
+
         self.postprocess = postprocess.PostProcessor(
             num_classes=num_classes,
             anchors_per_level=self.anchors.anchors_over_all_feature_maps,
@@ -109,8 +109,7 @@ class Detector(torch.nn.Module):
         """ Load the supplied backbone. """
         if "efficientdet" in backbone:
             model = efficientnet.EfficientNet(
-                backbone=_MODEL_SCALES[backbone][1],
-                num_classes=self.num_classes
+                backbone=_MODEL_SCALES[backbone][1], num_classes=self.num_classes
             )
         elif "vovnet" in backbone:
             model = vovnet.VoVNet("V-19-slim-dw-eSE")
@@ -119,9 +118,11 @@ class Detector(torch.nn.Module):
 
         return model
 
-    def _load_fpn(self, fpn_name: str, features: List[int], params: str = None) -> torch.nn.Module:
+    def _load_fpn(
+        self, fpn_name: str, features: List[int], params: str = None
+    ) -> torch.nn.Module:
         if "retinanet" in fpn_name:
-            fpn_ = fpn.FPN(in_channels=features[-3 :], out_channels=64)
+            fpn_ = fpn.FPN(in_channels=features[-3:], out_channels=64)
         elif "bifpn" in fpn_name:
             fpn_ = bifpn.BiFPN(
                 in_channels=features,
@@ -129,7 +130,7 @@ class Detector(torch.nn.Module):
                 num_bifpns=params[3],
                 num_levels_in=3,
                 bifpn_height=5,
-            )  
+            )
         return fpn_
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:

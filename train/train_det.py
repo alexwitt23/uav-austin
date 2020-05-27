@@ -87,8 +87,10 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         det_model.cuda()
 
     optimizer = create_optimizer(train_cfg["optimizer"], det_model)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-9, T_max=len(train_loader.dataset))
-    #optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, eta_min=1e-9, T_max=len(train_loader.dataset)
+    )
+    # optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
 
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
@@ -98,7 +100,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         all_losses = []
         clf_losses = []
         reg_losses = []
-        
+
         for idx, (images, boxes, classes, _) in enumerate(train_loader):
 
             optimizer.zero_grad()
@@ -137,7 +139,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                     f"clf loss {sum(clf_losses) / len(clf_losses):.5}, "
                     f"reg loss {sum(reg_losses) / len(reg_losses):.5}"
                 )
-        
+
         # Call evaluation function
         det_model.eval()
         eval_acc = eval(
@@ -173,7 +175,7 @@ def eval(
             total_num += images.shape[0]
             detections = det_model(images)
             detections_dict.extend(detections_to_dict(detections, image_ids))
-        
+
         print(
             f"Evaluated {total_num} images in {time.perf_counter() - start:.3} seconds."
         )

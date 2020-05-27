@@ -170,7 +170,7 @@ class PostProcessor:
         for box_cls_i, box_reg_i, anchors_i in zip(
             box_cls, box_delta, self.anchors_per_level
         ):
-            
+
             # (HxWxAxK,)
             box_cls_i = box_cls_i.flatten().sigmoid_()
 
