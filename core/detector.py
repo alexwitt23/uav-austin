@@ -73,11 +73,7 @@ class Detector(torch.nn.Module):
         else:
             # If no version supplied, just load the backbone
             self.backbone = self._load_backbone(backbone)
-            self.fpn = self._load_fpn(
-                fpn_name,
-                self.backbone.get_pyramid_channels(),
-                _MODEL_SCALES["efficientdet-b0"],
-            )
+            self.fpn = self._load_fpn(fpn_name, self.backbone.get_pyramid_channels(), _MODEL_SCALES["efficientdet-b1"])
 
         self.anchors = anchors.AnchorGenerator(
             img_height=img_height,
@@ -89,10 +85,9 @@ class Detector(torch.nn.Module):
         # Create the retinanet head.
         self.retinanet_head = retinanet_head.RetinaNetHead(
             num_classes,
-            in_channels=64,
+            in_channels=128,
             anchors_per_cell=self.anchors.num_anchors_per_cell,
-            num_convolutions=4,
-            dropout=0.2,
+            num_convolutions=4
         )
 
         if self.use_cuda:
@@ -117,12 +112,8 @@ class Detector(torch.nn.Module):
             model = efficientnet.EfficientNet(
                 backbone=_MODEL_SCALES[backbone][1], num_classes=self.num_classes
             )
-        elif backbone == "resnet18":
-            model = efficientdet.EfficientDet(
-                backbone=backbone, num_classes=self.num_classes
-            )
         elif "vovnet" in backbone:
-            model = vovnet.VoVNet("V-19-slim-dw-eSE")
+            model = vovnet.VoVNet(backbone)
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
 
@@ -132,7 +123,7 @@ class Detector(torch.nn.Module):
         self, fpn_name: str, features: List[int], params: str = None
     ) -> torch.nn.Module:
         if "retinanet" in fpn_name:
-            fpn_ = fpn.FPN(in_channels=features[-3:], out_channels=64)
+            fpn_ = fpn.FPN(in_channels=features[-3:], out_channels=128)
         elif "bifpn" in fpn_name:
             fpn_ = bifpn.BiFPN(
                 in_channels=features,

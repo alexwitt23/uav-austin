@@ -15,8 +15,7 @@ class SubNetLayer(torch.nn.Module):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
-        residual: bool = True,
-        dropout: float = 0.2,
+        residual: bool = True
     ) -> None:
         """ Simple Subnet Block that allows for adding a residual as done in
         efficiendet implementation.
@@ -26,13 +25,10 @@ class SubNetLayer(torch.nn.Module):
             stride: The depthwise stride.
             padding: Padding to add during depthwise.
             residual: Wether to add residual between levels like in efficiendet.
-            drouput: Drouput probability to apply. Help to combat overfitting with
-                residual.
         """
 
         super().__init__()
         self.residual = residual
-        self.dropout = dropout
         self.layers = torch.nn.Sequential(
             # Depthwise
             torch.nn.Conv2d(
@@ -48,14 +44,13 @@ class SubNetLayer(torch.nn.Module):
                 in_channels=channels, out_channels=channels, kernel_size=1, bias=True,
             ),
             torch.nn.BatchNorm2d(channels),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(p=self.dropout if residual else 0, inplace=True),
+            torch.nn.ReLU(inplace=True),
         )
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         out = self.layers(x)
         if self.residual:
-            out += x
+            out = out + x
         return out
 
 
@@ -70,7 +65,6 @@ class RetinaNetHead(torch.nn.Module):
         in_channels: int,
         anchors_per_cell: int,
         num_convolutions: int = 4,  # Original paper proposes 4 convs
-        dropout: float = 0.2,
     ) -> None:
         super().__init__()
 
@@ -80,8 +74,7 @@ class RetinaNetHead(torch.nn.Module):
             classification_subnet += [
                 SubNetLayer(
                     channels=in_channels,
-                    residual=True if idx > 0 else False,
-                    dropout=dropout,
+                    residual=True if idx > 0 else False
                 )
             ]
         # NOTE same architecture between box regression and classification

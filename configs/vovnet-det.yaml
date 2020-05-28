@@ -1,15 +1,16 @@
 model:
-  type: "classification"
-  backbone: "vovnet-19-slim-dw"
+  type: "detection"
+  backbone: "vovnet-19"
+  fpn: "retinanet"
 training:
   optimizer: 
     type: "SGD"
-    lr: 1e-2
+    lr: 1e-4
     momentum: 0.9
     weight_decay: 1e-5
   epochs: 30
   gpu: True
-  batch_size: 200
-  eval_batch_size: 200
+  train_batch_size: 20
+  eval_batch_size: 20
   save_best: True
   

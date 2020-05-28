@@ -67,5 +67,5 @@ generate:
     images: 100
   eval_batch:
     offset: 0
-    images: 100
+    images: 200
   img_ext: png

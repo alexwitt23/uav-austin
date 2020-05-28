@@ -17,7 +17,7 @@ import torch
 import numpy as np
 
 from train import datasets
-from train.train_utils import model_saver, swa
+from train.train_utils import utils, swa
 from data_generation import generate_config
 from third_party.models import losses
 from core import detector
@@ -88,7 +88,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
     optimizer = create_optimizer(train_cfg["optimizer"], det_model)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, eta_min=1e-9, T_max=len(train_loader.dataset)
+        optimizer, eta_min=1e-9, T_max=len(train_loader)
     )
     # optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
 
@@ -179,21 +179,19 @@ def eval(
         print(
             f"Evaluated {total_num} images in {time.perf_counter() - start:.3} seconds."
         )
-        with tempfile.TemporaryDirectory() as d:
-            tmp_json = pathlib.Path(d) / "det.json"
-            tmp_json.write_text(json.dumps(detections_dict))
-            coco_gt = coco.COCO(generate_config.DATA_DIR / "detector_val/val_coco.json")
-            try:
+        if detections_dict:
+            with tempfile.TemporaryDirectory() as d:
+                tmp_json = pathlib.Path(d) / "det.json"
+                tmp_json.write_text(json.dumps(detections_dict))
+                coco_gt = coco.COCO(generate_config.DATA_DIR / "detector_val/val_coco.json")
                 coco_predicted = coco_gt.loadRes(str(tmp_json))
                 cocoEval = cocoeval.COCOeval(coco_gt, coco_predicted, "bbox")
                 cocoEval.evaluate()
                 cocoEval.accumulate()
                 cocoEval.summarize()
-            except IndexError:
-                pass
 
     if save_best:
-        model_saver.save_model(det_model, save_dir / "detector.pt")
+        utils.save_model(det_model, save_dir / "detector.pt")
 
     return 0.0
 
