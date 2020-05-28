@@ -6,7 +6,7 @@ import json
 import random
 
 import albumentations
-from PIL import Image
+import cv2
 import torch
 import numpy as np
 
@@ -56,7 +56,7 @@ class ClfDataset(torch.utils.data.Dataset):
         self.data_dir = data_dir
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        image = np.asarray(Image.open(self.images[idx]).convert("RGB"))
+        image = cv2.imread(str(self.images[idx]))
         image = torch.Tensor(self.transform(image=image)["image"])
         image = image.permute(2, 0, 1)
         class_id = 0 if "background" in self.images[idx].stem else 1
@@ -85,23 +85,29 @@ class DetDataset(torch.utils.data.Dataset):
         self.transform = detection_augmentations(img_height, img_width)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        image = np.asarray(Image.open(self.images[idx]).convert("RGB"))
+        image = cv2.imread(str(self.images[idx]))
+        assert image is not None, f"Trouble reading {self.images[idx]}."
         labels = json.loads(self.images[idx].with_suffix(".json").read_text())
 
-        boxes = [np.array(list(item.values())[1:]) for item in labels["bboxes"]]
+        boxes = torch.Tensor(
+            [
+                [item["x1"], item["y1"], item["w"], item["h"]]
+                for item in labels["bboxes"]
+            ]
+        )
         for box in boxes:
             box[2:] += box[:2]
 
         category_ids = [label["class_id"] for label in labels["bboxes"]]
 
         augmented = self.transform(image=image, bboxes=boxes, category_id=category_ids)
-        
-        boxes = torch.stack([torch.Tensor(dims) for dims in augmented["bboxes"]])
+
+        boxes = torch.Tensor(augmented["bboxes"])
         image = torch.Tensor(augmented["image"]).permute(2, 0, 1)
 
         # Image coordinates
         boxes = boxes * torch.Tensor(2 * list(image.shape[1:]))
-        
+
         return image, boxes, torch.Tensor(augmented["category_id"]), labels["image_id"]
 
     def __len__(self) -> int:
@@ -133,7 +139,7 @@ class TargetDataset(torch.utils.data.Dataset):
         while image_path1 == image_path2:
             image_path2 = random.choice(self.images)
 
-        image1 = np.asarray(Image.open(image_path1).convert("RGB"))
+        image1 = cv2.imread(image_path1)
         image1 = torch.Tensor(self.transform(image=image1)["image"]).permute(2, 0, 1)
 
         image2 = np.asarray(Image.open(image_path1).convert("RGB"))

@@ -269,7 +269,7 @@ def compute_losses(
     pred_class_logits, pred_anchor_deltas = postprocess.permute_to_N_HWA_K_and_concat(
         cls_per_level, reg_per_level, num_classes
     )
-    
+
     # Take the ground truth labels and boxes and find which original anchors
     # match the ground truth boxes the best.
     gt_classes, gt_anchors_deltas = get_ground_truth(
