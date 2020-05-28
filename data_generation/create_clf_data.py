@@ -91,13 +91,13 @@ def _single_clf_image(data) -> None:
     background = enhance_image(background, enhancement)
 
     data_path = config.DATA_DIR / gen_type
-    bkg_fn = data_path / f"background{number}.{config.IMAGE_EXT}"
+    bkg_fn = data_path / f"background{number}{config.IMAGE_EXT}"
     background.save(bkg_fn)
 
     # Now consider the shape image
     shape = Image.open(shape_img).resize(config.PRECLF_SIZE)
     shape = enhance_image(shape, enhancement)
-    shape_fn = data_path / f"target{number}.{config.IMAGE_EXT}"
+    shape_fn = data_path / f"target{number}{config.IMAGE_EXT}"
     shape.save(shape_fn)
 
 

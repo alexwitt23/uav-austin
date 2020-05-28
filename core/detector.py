@@ -10,8 +10,8 @@ import torchvision
 
 from core import pull_assets
 from third_party.efficientdet import bifpn, efficientnet
+from third_party.vovnet import vovnet
 from third_party.models import (
-    vovnet,
     fpn,
     postprocess,
     regression,

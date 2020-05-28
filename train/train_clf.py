@@ -66,7 +66,9 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             # Compute the gradient throughout the model graph
             losses.backward()
             # Perform the weight updates
-            lr = utils.swa_lr_decay(global_step, (len(train_loader) - 1) * 2, 1e-2, 1e-4)
+            lr = utils.swa_lr_decay(
+                global_step, (len(train_loader) - 1) * 2, 1e-2, 1e-4
+            )
             optimizer.step(lr, idx)
 
             if idx % _LOG_INTERVAL == 0:
@@ -76,7 +78,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                 )
 
         # Call evaluation function
-        clf_model.eval() 
+        clf_model.eval()
         optimizer.update_bn(train_loader)
         highest_score = eval_acc = eval(
             clf_model,
@@ -87,7 +89,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             highest_score,
             save_dir,
         )
-        optimizer.swa_model.cpu() 
+        optimizer.swa_model.cpu()
         clf_model.train()
 
         print(
@@ -129,11 +131,15 @@ def eval(
     swa_model.cpu()
 
     accuracy = {
-        "base": num_correct_base /  total_num,
-        "swa": num_correct_swa /  total_num,
+        "base": num_correct_base / total_num,
+        "swa": num_correct_swa / total_num,
     }
-    
-    if save_best and accuracy["swa"] > previous_best["swa"] or accuracy["base"] > previous_best["base"]:
+
+    if (
+        save_best
+        and accuracy["swa"] > previous_best["swa"]
+        or accuracy["base"] > previous_best["base"]
+    ):
         print(f"Saving model with accuracy {accuracy}.")
         # Delete thee previous best
         previous_best = save_dir / "classifier.pt"
@@ -141,7 +147,7 @@ def eval(
             previous_best.unlink()
 
         utils.save_model(swa_model.model, save_dir / "classifier.pt")
-    
+
         return accuracy
     else:
         return previous_best

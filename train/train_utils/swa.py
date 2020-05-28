@@ -48,22 +48,21 @@ class SWA(torch.optim.Optimizer):
         self.optimizer.step()
         self.step_counter += 1
         # Update if past starting amount of steps and start of new cycle.
-        if (
-            step > self.start_swa
-            and self.step_counter % self.swa_frequency == 0
-        ):
+        if step > self.start_swa and self.step_counter % self.swa_frequency == 0:
             self._update_swa_model()
 
         for param_group in self.param_groups:
-            param_group['lr'] = lr
+            param_group["lr"] = lr
 
     def _update_swa_model(self) -> None:
         """ Loop over all the layers from the non-swa model and update their SWA 
         counterparts. """
         with torch.no_grad():
-            for swa_weights, base_weights in zip(self.swa_model.parameters(), self.model.model.parameters()):
-                #swa_layer = self.swa_model.model.state_dict()[layer_id]
-                swa_weights *= (1.0 - 1.0 / (self.n_avg + 1.0))
+            for swa_weights, base_weights in zip(
+                self.swa_model.parameters(), self.model.model.parameters()
+            ):
+                # swa_layer = self.swa_model.model.state_dict()[layer_id]
+                swa_weights *= 1.0 - 1.0 / (self.n_avg + 1.0)
                 swa_weights += base_weights.cpu() * (self.n_avg + 1)
 
         self.n_avg += 1
