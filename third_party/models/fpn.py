@@ -3,6 +3,7 @@ https://github.com/facebookresearch/detectron2/blob/master/detectron2/modeling/b
 """
 
 from typing import List
+import collections 
 
 import torch
 
@@ -45,34 +46,37 @@ class FPN(torch.nn.Module):
             [DepthwiseSeparable(out_channels, out_channels) for _ in range(num_levels)]
         )
 
-    def __call__(self, feature_maps: List[torch.Tensor]) -> List[torch.Tensor]:
+    def __call__(self, feature_maps: collections.OrderedDict) -> collections.OrderedDict:
         """ Take the input feature maps and apply the necessary convolutions to build
         out the num_levels specified. """
-
+        
         # First, loop over the incoming layers and proceed as follows: from top to
         # bottom, apply lateral convolution, add with the previous layer (if there is
         # one), and then apply a convolution.
-        for idx, level in enumerate(reversed(feature_maps)):
-            # Apply the lateral convolution
-            feature_maps[-idx - 1] = self.lateral_convs[idx](feature_maps[-idx - 1])
-            # Add the previous layer upsampled, if there is one.
-            if idx > 0:
-                feature_maps[-idx - 1] += torch.nn.functional.interpolate(
-                    feature_maps[-idx],
-                    level.shape[2:],
+        for idx, level_idx in enumerate(reversed(feature_maps.keys())):
+
+            # Apply the lateral convolution to previous layer.
+            feature_maps[level_idx] = self.lateral_convs[idx](feature_maps[level_idx])
+
+            # Add the interpolated layer above, if it exists.
+            if level_idx < next(reversed(feature_maps.keys())):
+                feature_maps[level_idx] += torch.nn.functional.interpolate(
+                    feature_maps[level_idx + 1],
+                    feature_maps[level_idx].shape[2:],
                     align_corners=True,
                     mode="bilinear",
                 )
-            feature_maps[-idx - 1] = self.convs[idx](feature_maps[-idx - 1])
+            feature_maps[level_idx] = self.convs[idx](feature_maps[level_idx])
 
         # If more feature maps are needed to be made, take the top most incoming layer
         # and create the remaining levels.
         for idx in range(self.num_levels - self.num_in):
+            new_id = next(reversed(feature_maps.keys())) + 1
 
             # Downsample the current most 'low-res' map, then apply convolution.
             # TODO(alex) do we have bandwidth for this to be conv2d?
             new_level = torch.nn.functional._max_pool2d(
-                feature_maps[idx + self.num_in - 1], kernel_size=1, stride=2, padding=0
+                feature_maps[new_id - 1], kernel_size=3, stride=2, padding=1
             )
             # Now apply the convolution
             new_level = self.convs[self.num_in + idx](new_level)
@@ -81,6 +85,6 @@ class FPN(torch.nn.Module):
             if idx != (self.num_levels - self.num_in - 1):
                 new_level = torch.nn.functional.relu(new_level)
 
-            feature_maps.append(new_level)
+            feature_maps[new_id] = new_level
 
         return feature_maps

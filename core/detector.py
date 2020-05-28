@@ -10,6 +10,7 @@ import torchvision
 
 from core import pull_assets
 from third_party.efficientdet import bifpn, efficientnet
+from third_party.vovnet import vovnet
 from third_party.models import (
     fpn,
     postprocess,
@@ -84,9 +85,9 @@ class Detector(torch.nn.Module):
         # Create the retinanet head.
         self.retinanet_head = retinanet_head.RetinaNetHead(
             num_classes,
-            in_channels=88,
+            in_channels=128,
             anchors_per_cell=self.anchors.num_anchors_per_cell,
-            num_convolutions=3
+            num_convolutions=4
         )
 
         if self.use_cuda:
@@ -112,7 +113,7 @@ class Detector(torch.nn.Module):
                 backbone=_MODEL_SCALES[backbone][1], num_classes=self.num_classes
             )
         elif "vovnet" in backbone:
-            model = vovnet.VoVNet("V-19-slim-dw-eSE")
+            model = vovnet.VoVNet(backbone)
         else:
             raise ValueError(f"Unsupported backbone {backbone}.")
 
@@ -122,7 +123,7 @@ class Detector(torch.nn.Module):
         self, fpn_name: str, features: List[int], params: str = None
     ) -> torch.nn.Module:
         if "retinanet" in fpn_name:
-            fpn_ = fpn.FPN(in_channels=features[-3:], out_channels=64)
+            fpn_ = fpn.FPN(in_channels=features[-3:], out_channels=128)
         elif "bifpn" in fpn_name:
             fpn_ = bifpn.BiFPN(
                 in_channels=features,
