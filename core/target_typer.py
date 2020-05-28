@@ -6,7 +6,7 @@ import torch
 
 from core import pull_assets
 from third_party.efficientdet import efficientnet
-from third_party.models import vovnet
+from third_party.vovnet import vovnet
 
 
 class TargetTyper(torch.nn.Module):

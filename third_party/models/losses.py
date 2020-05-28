@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import torch
 from torchvision.ops import boxes
@@ -8,7 +8,7 @@ from third_party.models import postprocess, regression
 
 def smooth_l1_loss(
     input: torch.Tensor, target: torch.Tensor, beta: float, reduction: str = "none"
-):
+) -> torch.Tensor:
     """
     Smooth L1 loss defined in the Fast R-CNN paper as:
                   | 0.5 * x ** 2 / beta   if abs(x) < beta
@@ -63,6 +63,7 @@ def smooth_l1_loss(
         loss = loss.mean()
     elif reduction == "sum":
         loss = loss.sum()
+
     return loss
 
 
@@ -72,7 +73,7 @@ def sigmoid_focal_loss(
     alpha: float = -1,
     gamma: float = 2,
     reduction: str = "none",
-):
+) -> torch.Tensor:
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
     Args:
@@ -163,7 +164,7 @@ class Matcher:
         self.labels = labels
         self.allow_low_quality_matches = allow_low_quality_matches
 
-    def __call__(self, match_quality_matrix):
+    def __call__(self, match_quality_matrix: torch.Tensor):
         """
         Args:
             match_quality_matrix (Tensor[float]): an MxN tensor, containing the
@@ -251,7 +252,6 @@ def compute_losses(
     cls_per_level: List[torch.Tensor],
     reg_per_level: List[torch.Tensor],
     num_classes: int,
-    use_cuda: bool = False,
 ) -> Dict[str, float]:
     """
     Args:
@@ -269,18 +269,15 @@ def compute_losses(
     pred_class_logits, pred_anchor_deltas = postprocess.permute_to_N_HWA_K_and_concat(
         cls_per_level, reg_per_level, num_classes
     )
+    
     # Take the ground truth labels and boxes and find which original anchors
     # match the ground truth boxes the best.
     gt_classes, gt_anchors_deltas = get_ground_truth(
         original_anchors, gt_boxes, gt_classes, num_classes=num_classes
     )
 
-    if use_cuda:
-        gt_classes = gt_classes.flatten().long().cuda()
-        gt_anchors_deltas = gt_anchors_deltas.view(-1, 4).cuda()
-    else:
-        gt_classes = gt_classes.flatten().long()
-        gt_anchors_deltas = gt_anchors_deltas.view(-1, 4)
+    gt_classes = gt_classes.flatten().long()
+    gt_anchors_deltas = gt_anchors_deltas.view(-1, 4)
 
     pred_anchor_deltas = pred_anchor_deltas.view(-1, 4)
     pred_class_logits = pred_class_logits.view(-1, num_classes)
@@ -300,6 +297,7 @@ def compute_losses(
         gamma=2.0,
         reduction="sum",
     ) / max(1, num_foreground)
+
     # regression loss
     loss_box_reg = smooth_l1_loss(
         pred_anchor_deltas[foreground_idxs],
@@ -315,14 +313,17 @@ def get_ground_truth(
     original_anchors: torch.Tensor,
     gt_boxes_all: List[torch.Tensor],
     gt_classes: List[torch.Tensor],
-    matcher=Matcher(),
-    regressor=regression.Regressor(),
-    num_classes: int = None,
-):
+    num_classes: int,
+    matcher: Matcher = Matcher(),
+    regressor: regression.Regressor = regression.Regressor(),
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Args:
-        original_anchors: A list of all the anchors in the model.
+        original_anchors: A tensor of all the anchors in the model.
         gt_boxes_all: A list of the ground truth boxes.
+        matcher: The matcher object used to match labels to original anchors.
+        regressor: The regressor used to get the offsets between matched boxes.
+        num_classes: The number of classes in the model.
     Returns:
         gt_classes (Tensor):
             An integer tensor of shape (N, R) storing ground-truth
@@ -342,16 +343,19 @@ def get_ground_truth(
     """
     gt_classes_out = []
     gt_anchors_deltas = []
+
     # Loop over the ground truth boxes and labels for each image in the batch.
     for gt_targets, gt_boxes in zip(gt_classes, gt_boxes_all):
 
-        # See if there are any labels for this image
+        # See if there are any labels for this image, process them.
         if len(gt_boxes) > 0:
+
             # Calculate a IoU matrix which compares each original anchor to each ground truth
             # box. This will allow us to see which predictions match which anchors.
             match_quality_matrix = boxes.box_iou(gt_boxes, original_anchors)
             gt_matched_idxs, anchor_labels = matcher(match_quality_matrix)
-            #
+
+            # Get the ground regressions from the matched GT to box labels.
             matched_gt_boxes = gt_boxes[gt_matched_idxs]
             gt_anchors_reg_deltas_i = regressor.get_deltas(
                 original_anchors, matched_gt_boxes
@@ -360,9 +364,12 @@ def get_ground_truth(
 
             # Anchors with label 0 are treated as background.
             gt_classes_i[anchor_labels == 0] = num_classes
+
             # Anchors with label -1 are ignored.
             gt_classes_i[anchor_labels == -1] = -1
         else:
+
+            # If there are no labels, no anchor deltas and all boxes are background id.
             gt_anchors_reg_deltas_i = torch.zeros_like(original_anchors)
             gt_classes_i = torch.zeros(len(gt_anchors_reg_deltas_i)) + num_classes
 

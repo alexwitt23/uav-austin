@@ -121,7 +121,6 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
                 cls_per_level=cls_per_level,
                 reg_per_level=reg_per_level,
                 num_classes=len(generate_config.OD_CLASSES),
-                use_cuda=use_cuda,
             )
             total_loss = cls_loss + reg_loss
             clf_losses.append(cls_loss)
@@ -183,7 +182,9 @@ def eval(
             with tempfile.TemporaryDirectory() as d:
                 tmp_json = pathlib.Path(d) / "det.json"
                 tmp_json.write_text(json.dumps(detections_dict))
-                coco_gt = coco.COCO(generate_config.DATA_DIR / "detector_val/val_coco.json")
+                coco_gt = coco.COCO(
+                    generate_config.DATA_DIR / "detector_val/val_coco.json"
+                )
                 coco_predicted = coco_gt.loadRes(str(tmp_json))
                 cocoEval = cocoeval.COCOeval(coco_gt, coco_predicted, "bbox")
                 cocoEval.evaluate()

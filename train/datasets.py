@@ -92,15 +92,16 @@ class DetDataset(torch.utils.data.Dataset):
         for box in boxes:
             box[2:] += box[:2]
 
-        category_ids = [label["class_id"] + 1 for label in labels["bboxes"]]
+        category_ids = [label["class_id"] for label in labels["bboxes"]]
 
-        augmented = self.transform(
-            **{"image": image, "bboxes": boxes, "category_id": category_ids}
-        )
+        augmented = self.transform(image=image, bboxes=boxes, category_id=category_ids)
+        
         boxes = torch.stack([torch.Tensor(dims) for dims in augmented["bboxes"]])
         image = torch.Tensor(augmented["image"]).permute(2, 0, 1)
+
         # Image coordinates
         boxes = boxes * torch.Tensor(2 * list(image.shape[1:]))
+        
         return image, boxes, torch.Tensor(augmented["category_id"]), labels["image_id"]
 
     def __len__(self) -> int:

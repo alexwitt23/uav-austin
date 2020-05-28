@@ -73,7 +73,11 @@ class Detector(torch.nn.Module):
         else:
             # If no version supplied, just load the backbone
             self.backbone = self._load_backbone(backbone)
-            self.fpn = self._load_fpn(fpn_name, self.backbone.get_pyramid_channels(), _MODEL_SCALES["efficientdet-b1"])
+            self.fpn = self._load_fpn(
+                fpn_name,
+                self.backbone.get_pyramid_channels(),
+                _MODEL_SCALES["efficientdet-b1"],
+            )
 
         self.anchors = anchors.AnchorGenerator(
             img_height=img_height,
@@ -87,7 +91,7 @@ class Detector(torch.nn.Module):
             num_classes,
             in_channels=128,
             anchors_per_cell=self.anchors.num_anchors_per_cell,
-            num_convolutions=4
+            num_convolutions=4,
         )
 
         if self.use_cuda:

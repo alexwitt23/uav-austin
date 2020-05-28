@@ -15,7 +15,7 @@ class SubNetLayer(torch.nn.Module):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
-        residual: bool = True
+        residual: bool = True,
     ) -> None:
         """ Simple Subnet Block that allows for adding a residual as done in
         efficiendet implementation.
@@ -72,10 +72,7 @@ class RetinaNetHead(torch.nn.Module):
         classification_subnet = torch.nn.ModuleList([])
         for idx in range(num_convolutions):
             classification_subnet += [
-                SubNetLayer(
-                    channels=in_channels,
-                    residual=True if idx > 0 else False
-                )
+                SubNetLayer(channels=in_channels, residual=True if idx > 0 else False)
             ]
         # NOTE same architecture between box regression and classification
         regression_subnet = copy.deepcopy(classification_subnet)

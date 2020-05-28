@@ -17,7 +17,7 @@ from sklearn import metrics
 from core import target_typer
 from data_generation import generate_config
 from train import datasets
-from train_utils import model_saver
+from train_utils import utils
 
 _TRIPLET_MARGIN = 10
 _LOG_INTERVAL = 1
@@ -43,7 +43,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path):
     model = target_typer.TargetTyper(backbone=model_cfg.get("backbone", None))
     if use_cuda:
         model.cuda()
-    model_saver.save_model(model.model, save_dir / "feature_extractor.pt")
+    utils.save_model(model.model, save_dir / "feature_extractor.pt")
     loss_fn = torch.nn.TripletMarginLoss(_TRIPLET_MARGIN)
     optim = torch.optim.SGD(model.parameters(), lr=1e-3)
 

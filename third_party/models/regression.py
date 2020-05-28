@@ -1,7 +1,7 @@
-""" Taking largely from detectron2/blob/master/detectron2/modeling/box_regression.py.
+"""Taken from detectron2/blob/master/detectron2/modeling/box_regression.py.
 
 This class is used to get the the regression offsets between boxes and ground truth 
-and apply deltas to original anchors. """
+and apply deltas to original anchors."""
 
 import math
 
@@ -14,24 +14,30 @@ _DEFAULT_SCALE_CLAMP = math.log(1000.0 / 16)
 
 
 class Regressor:
-    def __init__(self, scale_clamp: float = _DEFAULT_SCALE_CLAMP):
+    def __init__(self, scale_clamp: float = _DEFAULT_SCALE_CLAMP) -> None:
         self.scale_clamp = scale_clamp
         self.weights = (1.0, 1.0, 1.0, 1.0)
 
-    def get_deltas(self, src_boxes: torch.Tensor, target_boxes: torch.Tensor):
-        """Get box regression transformation deltas (dx, dy, dw, dh) that can be used
-        to transform the src_boxes into the target_boxes. That is, the relation
-        ``target_boxes == self.apply_deltas(deltas, src_boxes)`` is true (unless
-        any delta is too large and is clamped).
+    def get_deltas(
+        self, src_boxes: torch.Tensor, target_boxes: torch.Tensor
+    ) -> torch.Tensor:
+        """Get box regression transformation deltas (dx, dy, dw, dh) that can be used to
+        transform the src_boxes into the target_boxes.
+
         Args:
             src_boxes: source boxes, e.g., object proposals
             target_boxes: target of the transformation, e.g., ground-truth boxes.
+        Return:
+            Returns the deltas between the srcs and target boxes.
+            
         Usage:
         >>> regressor = Regressor()
         >>> srcs = torch.Tensor([10, 10, 20, 20])
         >>> targets = torch.Tensor([10, 10, 20, 20])
         >>> regressor.get_deltas(srcs, targets)
         []
+        >>> []
+        True
         """
         assert isinstance(src_boxes, torch.Tensor), type(src_boxes)
         assert isinstance(target_boxes, torch.Tensor), type(target_boxes)

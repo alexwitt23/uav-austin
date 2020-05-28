@@ -3,7 +3,7 @@ https://github.com/facebookresearch/detectron2/blob/master/detectron2/modeling/b
 """
 
 from typing import List
-import collections 
+import collections
 
 import torch
 
@@ -46,10 +46,12 @@ class FPN(torch.nn.Module):
             [DepthwiseSeparable(out_channels, out_channels) for _ in range(num_levels)]
         )
 
-    def __call__(self, feature_maps: collections.OrderedDict) -> collections.OrderedDict:
+    def __call__(
+        self, feature_maps: collections.OrderedDict
+    ) -> collections.OrderedDict:
         """ Take the input feature maps and apply the necessary convolutions to build
         out the num_levels specified. """
-        
+
         # First, loop over the incoming layers and proceed as follows: from top to
         # bottom, apply lateral convolution, add with the previous layer (if there is
         # one), and then apply a convolution.
