@@ -12,8 +12,9 @@ class AnchorGenerator(torch.nn.Module):
         img_height: int,
         img_width: int,
         pyramid_levels: List[int],
+        aspect_ratios: List[float],
+        sizes: List[int],
         anchor_scales: List[float],
-        use_cuda: bool = False,
     ) -> None:
         """ This class will hold the models anchor information. Important
         items are the anchors per feature map and the entire tensor of anchors.
@@ -23,7 +24,6 @@ class AnchorGenerator(torch.nn.Module):
             img_width: Width of the image for claculating bbox grids.
             pyramid_levels: Which levels are part of the feature map.
             anchor_scales: The scales by which the height and width are multiplied.
-            use_cuda: If this model is being run on gpu.
 
         Usage:
         >>> anchor_gen = AnchorGenerator(512, 512, [3, 4, 5, 6, 7], [0.5, 1, 2])
@@ -44,9 +44,8 @@ class AnchorGenerator(torch.nn.Module):
         self.pyramid_levels = pyramid_levels
         self.img_height = img_height
         self.img_width = img_width
-        self.cuda = use_cuda
-        self.aspect_ratios = [0.5, 1, 2]
-        self.sizes = [2 ** (level + 2) for level in pyramid_levels]
+        self.aspect_ratios = aspect_ratios
+        self.sizes = sizes
         self.strides = [2 ** level for level in pyramid_levels]
 
         # Generate all anchors based on the sizes, aspect ratios, and scales. We

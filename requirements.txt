@@ -4,7 +4,6 @@ albumentations==0.4.3
 requests==2.23.0
 pycocotools==2.0.0
 pyyaml==5.3.1
-dataclasses==0.7
 scikit-learn==0.22.2
 torchcontrib==0.0.2
 protobuf==3.12.0

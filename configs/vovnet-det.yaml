@@ -1,7 +1,19 @@
 model:
   type: "detection"
   backbone: "vovnet-19"
-  fpn: "retinanet"
+  fpn: 
+    type: "retinanet"
+    num_channels: 128
+    use_dw: true
+    levels: [3, 4, 5, 6, 7]
+  retinanet_head:
+    num_levels: 4
+    use_dw: true
+  img_size: [512, 512]  # H, W
+  anchors:
+    aspect_ratios: [0.5, 1, 2]  # H / W
+    sizes: [32, 64, 128, 256]
+    scales: [0.75, 1.0, 1.25]
 training:
   optimizer: 
     type: "SGD"

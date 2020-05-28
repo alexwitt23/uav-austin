@@ -2,6 +2,7 @@
 head.This allows for easy interchangeability during experimentation and a reliable way to
 load saved models. """
 import collections
+import dataclasses
 from typing import List
 import yaml
 
@@ -19,79 +20,79 @@ from third_party.models import (
     retinanet_head,
 )
 
-_MODEL_SCALES = {
-    # (resolution, backbone, bifpn channels, num bifpn layers, head layers)
-    "efficientdet-b0": (512, "efficientnet-b0", 64, 3, 3),
-    "efficientdet-b1": (640, "efficientnet-b1", 88, 4, 3),
-    "efficientdet-b2": (768, "efficientnet-b2", 112, 5, 3),
-    "efficientdet-b3": (896, "efficientnet-b3", 160, 6, 4),
-    "efficientdet-b4": (1024, "efficientnet-b4", 224, 7, 4),
-    "efficientdet-b5": (1280, "efficientnet-b5", 288, 7, 4),
+
+@dataclasses.dataclass
+class BiFPN_Params:
+    resolution: int
+    channels: int
+    num_layers: int
+    head_convs: int
+
+
+_EFFICIENT_DETS = {
+    "bifpn-b0": BiFPN_Params(512, 64, 3, 3),
+    "bifpn-b1": BiFPN_Params(640, 88, 4, 3),
+    "bifpn-b2": BiFPN_Params(768, 112, 5, 3),
+    "bifpn-b3": BiFPN_Params(896, 160, 6, 4),
+    "bifpn-b4": BiFPN_Params(1024, 224, 7, 4),
+    "bifpn-b5": BiFPN_Params(1280, 288, 7, 4),
 }
 
 
 class Detector(torch.nn.Module):
     def __init__(
         self,
-        img_width: int,
-        img_height: int,
         num_classes: int,
-        backbone: str = None,
-        fpn_name: str = None,
+        model_params: dict = None,
         version: str = None,
-        use_cuda: bool = True,
+        use_cuda: bool = torch.cuda.is_available(),
         half_precision: bool = False,
-        num_detections_per_image: int = 3,
         confidence: float = 0.01,
-        levels: List[int] = [3, 4, 5, 6, 7],
+        num_detections_per_image: int = 3,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
-        self.img_width = img_width
-        self.img_height = img_height
         self.use_cuda = use_cuda
         self.half_precision = half_precision
         self.num_detections_per_image = num_detections_per_image
         self.confidence = confidence
-        self.levels = levels
 
-        if backbone is None and version is None:
+        if model_params is None and version is None:
             raise ValueError("Must supply either model version or backbone to load")
 
         # If a version is given, download from bintray
         if version is not None:
+
             # Download the model. This has the yaml containing the backbone.
             model_path = pull_assets.download_model(
                 model_type="detector", version=version
             )
+
             # Load the config in the package to determine the backbone
             config = yaml.safe_load((model_path.parent / "config.yaml").read_text())
-            backbone = config.get("model", {}).get("backbone", None)
-            # Construct the model, then load the state
-            self.backbone = self._load_backbone(backbone)
-            self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
+            self._load_params(config)
         else:
-            # If no version supplied, just load the backbone
-            self.backbone = self._load_backbone(backbone)
-            self.fpn = self._load_fpn(
-                fpn_name,
-                self.backbone.get_pyramid_channels(),
-                _MODEL_SCALES["efficientdet-b1"],
-            )
+            self._load_params(model_params)
+
+        self.backbone = self._load_backbone(self.backbone)
+
+        self.fpn = self._load_fpn(self.fpn_type, self.backbone.get_pyramid_channels())
 
         self.anchors = anchors.AnchorGenerator(
             img_height=img_height,
             img_width=img_width,
-            pyramid_levels=[3, 4, 5, 6, 7],
-            anchor_scales=[1.0, 1.2599, 1.5874],
+            pyramid_levels=self.fpn_levels,
+            aspect_ratios=self.aspect_ratios,
+            sizes=self.sizes,
+            anchor_scales=self.anchor_scales,
         )
 
         # Create the retinanet head.
         self.retinanet_head = retinanet_head.RetinaNetHead(
             num_classes,
-            in_channels=128,
+            in_channels=self.fpn_channels,
             anchors_per_cell=self.anchors.num_anchors_per_cell,
-            num_convolutions=4,
+            num_convolutions=self.num_head_convs,
         )
 
         if self.use_cuda:
@@ -108,13 +109,48 @@ class Detector(torch.nn.Module):
             max_detections_per_image=num_detections_per_image,
             score_threshold=confidence,
         )
+
+        if version is not None:
+            self.load_state_dict(torch.load(model_path, map_location="cpu"))
+
         self.eval()
 
+    def _load_params(self, config: dict) -> None:
+        """Function to parse the model definition params for later building."""
+        self.backbone = config.get("backbone", None)
+        assert self.backbone is not None, "Please supply a backbone!"
+
+        fpn_params = config.get("fpn", None)
+        head_params = config.get("retinanet_head", None)
+        assert fpn_params is not None, "Must supply a fpn section in the config."
+
+        self.fpn_type = fpn_params.get("type", None)
+        assert self.fpn_type is not None, "Must supply a fpn type."
+
+        if "bifpn" in self.fpn_type:
+            params = _EFFICIENT_DETS[self.fpn_type]
+            self.fpn_channels = params.channels
+            self.num_bifpn = params.num_layers
+            self.num_head_convs = params.head_convs
+        else:
+            self.fpn_channels = fpn_params.get("num_channels", 128)
+            self.use_dw = fpn_params.get("use_dw", True)
+            self.num_head_convs = head_params.get("num_levels", 3)
+
+        self.fpn_levels = fpn_params.get("levels", [3, 4, 5, 6, 7])
+        self.retinanet_head_dw = head_params.get("use_dw", True)
+
+        anchor_params = config.get("anchors", None)
+        assert anchor_params is not None, "Please add an anchor section."
+        self.aspect_ratios = anchor_params.get("aspect_ratios", [0.5, 1, 2])
+        self.sizes = anchor_params.get("sizes", [32, 64, 128, 256])
+        self.scales = anchor_params.get("scales", [0.75, 1.0, 1.25])
+
     def _load_backbone(self, backbone: str) -> torch.nn.Module:
-        """ Load the supplied backbone. """
-        if "efficientdet" in backbone:
+        """Load the supplied backbone."""
+        if "efficient" in backbone:
             model = efficientnet.EfficientNet(
-                backbone=_MODEL_SCALES[backbone][1], num_classes=self.num_classes
+                backbone=backbone, num_classes=self.num_classes
             )
         elif "vovnet" in backbone:
             model = vovnet.VoVNet(backbone)
@@ -123,18 +159,16 @@ class Detector(torch.nn.Module):
 
         return model
 
-    def _load_fpn(
-        self, fpn_name: str, features: List[int], params: str = None
-    ) -> torch.nn.Module:
+    def _load_fpn(self, fpn_name: str, features: List[int]) -> torch.nn.Module:
         if "retinanet" in fpn_name:
-            fpn_ = fpn.FPN(in_channels=features[-3:], out_channels=128)
+            fpn_ = fpn.FPN(in_channels=features[-3:], out_channels=self.fpn_channels)
         elif "bifpn" in fpn_name:
             fpn_ = bifpn.BiFPN(
                 in_channels=features,
-                out_channels=params[2],
-                num_bifpns=params[3],
+                out_channels=self.fpn_channels,
+                num_bifpns=self.num_bifpn,
                 num_levels_in=3,
-                bifpn_height=5,
+                bifpn_height=len(features),
             )
         return fpn_
 
