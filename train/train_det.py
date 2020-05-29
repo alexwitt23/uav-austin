@@ -20,6 +20,7 @@ from train import datasets
 from train.train_utils import utils, swa
 from data_generation import generate_config
 from third_party.models import losses
+from third_party import coco_eval
 from core import detector
 
 _LOG_INTERVAL = 10
@@ -68,15 +69,14 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
     use_cuda = train_cfg.get("gpu", False)
     save_best = train_cfg.get("save_best", False)
-    if save_best:
-        highest_score = 0
+    eval_results = None
 
     # Load the model and remove the classification head of the backbone.
     # We don't need the backbone to make classifications.
     det_model = detector.Detector(
         num_classes=len(generate_config.OD_CLASSES),
         model_params=model_cfg,
-        confidence=0.05,
+        confidence=0.01,
     )
     det_model.train()
     print(f"Model architecture: \n {det_model}")
@@ -90,7 +90,12 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
     optimizer = create_optimizer(train_cfg["optimizer"], det_model)
     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer, max_lr=1e-2, total_steps=len(train_loader) * epochs, final_div_factor=1e7, div_factor=2, pct_start=0.02
+        optimizer,
+        max_lr=1e-2,
+        total_steps=len(train_loader) * epochs,
+        final_div_factor=1e7,
+        div_factor=2,
+        pct_start=0.02,
     )
     # optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
 
@@ -99,7 +104,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         all_losses = []
         clf_losses = []
         reg_losses = []
-
+    
         for idx, (images, boxes, classes, _) in enumerate(train_loader):
 
             optimizer.zero_grad()
@@ -142,16 +147,14 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
         # Call evaluation function
         det_model.eval()
-        eval_acc = eval(
-            det_model, eval_loader, use_cuda, save_best, highest_score, save_dir
+        eval_results = eval(
+            det_model, eval_loader, use_cuda, save_best, eval_results, save_dir
         )
-        highest_score = eval_acc if eval_acc > highest_score else eval_acc
         det_model.train()
 
-        eval_acc = 0.0
         print(
             f"Epoch: {epoch}, Training loss {sum(all_losses) / len(all_losses):.5} \n"
-            f"Eval accuracy: {eval_acc:.4}"
+            f"{eval_results}"
         )
 
 
@@ -160,7 +163,7 @@ def eval(
     eval_loader: torch.utils.data.DataLoader,
     use_cuda: bool = False,
     save_best: bool = False,
-    previous_best: float = None,
+    previous_best: dict = None,
     save_dir: pathlib.Path = None,
 ) -> float:
     """ Evalulate the model against the evaulation set. Save the best 
@@ -176,26 +179,24 @@ def eval(
             detections = det_model(images)
             detections_dict.extend(detections_to_dict(detections, image_ids))
 
-        print(
-            f"Evaluated {total_num} images in {time.perf_counter() - start:.3} seconds."
-        )
-        if detections_dict:
-            with tempfile.TemporaryDirectory() as d:
-                tmp_json = pathlib.Path(d) / "det.json"
-                tmp_json.write_text(json.dumps(detections_dict))
-                coco_gt = coco.COCO(
-                    generate_config.DATA_DIR / "detector_val/val_coco.json"
-                )
-                coco_predicted = coco_gt.loadRes(str(tmp_json))
-                cocoEval = cocoeval.COCOeval(coco_gt, coco_predicted, "bbox")
-                cocoEval.evaluate()
-                cocoEval.accumulate()
-                cocoEval.summarize()
+    print(f"Evaluated {total_num} images in {time.perf_counter() - start:.3} seconds.")
+    if detections_dict:
+        with tempfile.TemporaryDirectory() as d:
+            tmp_json = pathlib.Path(d) / "det.json"
+            tmp_json.write_text(json.dumps(detections_dict))
+            results = coco_eval.get_metrics(
+                generate_config.DATA_DIR / "detector_val/val_coco.json", tmp_json
+            )
 
-    if save_best:
-        utils.save_model(det_model, save_dir / "detector.pt")
+    previous_best = results if previous_best is None else previous_best
 
-    return 0.0
+    for (metric, old), new in zip(previous_best.items(), results.values()):
+        if new > old:
+            previous_best[metric] = new
+
+    utils.save_model(det_model, save_dir / "detector.pt")
+
+    return previous_best
 
 
 def create_data_loader(

@@ -32,7 +32,11 @@ def conv3x3(in_channels: int, out_channels: int):
 
 class FPN(torch.nn.Module):
     def __init__(
-        self, in_channels: List[int], out_channels: int, num_levels: int = 5, use_dw: bool = False
+        self,
+        in_channels: List[int],
+        out_channels: int,
+        num_levels: int = 5,
+        use_dw: bool = False,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -49,7 +53,9 @@ class FPN(torch.nn.Module):
         # to the same channel depth.
         self.lateral_convs = torch.nn.ModuleList([])
         for channels in reversed(in_channels):
-            self.lateral_convs.append(torch.nn.Conv2d(channels, out_channels, kernel_size=1))
+            self.lateral_convs.append(
+                torch.nn.Conv2d(channels, out_channels, kernel_size=1)
+            )
 
         # Construct a convolution per level.
         self.convs = torch.nn.ModuleList([])

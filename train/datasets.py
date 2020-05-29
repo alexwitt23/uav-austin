@@ -89,22 +89,36 @@ class DetDataset(torch.utils.data.Dataset):
         labels = json.loads(self.images[idx].with_suffix(".json").read_text())
 
         boxes = [
-                torch.Tensor([item["x1"], item["y1"], item["x1"] + item["w"], item["y1"] + item["h"]])
-                for item in labels["bboxes"]
-            ]
+            torch.Tensor(
+                [item["x1"], item["y1"], item["x1"] + item["w"], item["y1"] + item["h"]]
+            )
+            for item in labels["bboxes"]
+        ]
         boxes = torch.stack([torch.clamp(box, 0.0, 1.0) for box in boxes])
 
         category_ids = [label["class_id"] for label in labels["bboxes"]]
 
-        augmented = self.transform(image=image, bboxes=boxes, category_id=category_ids, image_id=labels["image_id"])
+        augmented = self.transform(
+            image=image,
+            bboxes=boxes,
+            category_id=category_ids,
+            image_id=labels["image_id"],
+        )
 
         boxes = torch.Tensor(augmented["bboxes"])
         image = torch.Tensor(augmented["image"]).permute(2, 0, 1)
 
         # Image coordinates
-        boxes = boxes * torch.Tensor([self.img_height, self.img_width, self.img_height, self.img_width])
+        boxes = boxes * torch.Tensor(
+            [self.img_height, self.img_width, self.img_height, self.img_width]
+        )
 
-        return image, boxes, torch.Tensor(augmented["category_id"]), augmented["image_id"]
+        return (
+            image,
+            boxes,
+            torch.Tensor(augmented["category_id"]),
+            augmented["image_id"],
+        )
 
     def __len__(self) -> int:
         return self.len

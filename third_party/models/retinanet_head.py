@@ -56,8 +56,8 @@ class RetinaNetHead(torch.nn.Module):
         for idx in range(num_convolutions):
             classification_subnet += [
                 *conv(in_channels, in_channels),
-                torch.nn.BatchNorm2d(in_channels), 
-                torch.nn.ReLU(inplace=True)
+                torch.nn.BatchNorm2d(in_channels),
+                torch.nn.ReLU(inplace=True),
             ]
         # NOTE same basic architecture between box regression and classification
         regression_subnet = copy.deepcopy(classification_subnet)
