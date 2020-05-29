@@ -1,28 +1,28 @@
 model:
   type: "detection"
-  backbone: "vovnet-19"
+  backbone: "vovnet-19-slim"
   fpn: 
-    type: "retinanet"
+    type: "bifpn-b0"
     num_channels: 128
-    use_dw: true
+    use_dw: false
     levels: [3, 4, 5, 6, 7]
   retinanet_head:
     num_levels: 4
-    use_dw: true
+    use_dw: false
   img_size: [512, 512]  # H, W
   anchors:
     aspect_ratios: [0.5, 1, 2]  # H / W
-    sizes: [32, 64, 128, 256]
-    scales: [0.75, 1.0, 1.25]
+    sizes: [16, 32, 64, 128, 256]
+    scales: [1.0, 1.2599, 1.5874]
 training:
   optimizer: 
     type: "SGD"
-    lr: 1e-4
+    lr: 5e-3
     momentum: 0.9
     weight_decay: 1e-5
-  epochs: 30
+  epochs: 100
   gpu: True
-  train_batch_size: 1
-  eval_batch_size: 1
+  train_batch_size: 26
+  eval_batch_size: 26
   save_best: True
   

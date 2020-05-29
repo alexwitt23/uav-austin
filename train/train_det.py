@@ -32,6 +32,7 @@ def detections_to_dict(bboxes: list, image_ids: torch.Tensor) -> List[dict]:
     serialized for the pycocotools package. """
     detections: List[dict] = []
     for image_boxes, image_id in zip(bboxes, image_ids):
+
         for bbox in image_boxes:
             box = bbox.box.int()
             # XYXY -> XYWH
@@ -73,11 +74,9 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     # Load the model and remove the classification head of the backbone.
     # We don't need the backbone to make classifications.
     det_model = detector.Detector(
-        backbone=model_cfg.get("backbone", None),
-        fpn_name=model_cfg.get("fpn", None),
-        img_width=generate_config.DETECTOR_SIZE[0],
-        img_height=generate_config.DETECTOR_SIZE[0],
         num_classes=len(generate_config.OD_CLASSES),
+        model_params=model_cfg,
+        confidence=0.05,
     )
     det_model.train()
     print(f"Model architecture: \n {det_model}")
@@ -86,14 +85,14 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         torch.backends.cudnn.benchmark = True
         det_model.cuda()
 
-    optimizer = create_optimizer(train_cfg["optimizer"], det_model)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, eta_min=1e-9, T_max=len(train_loader)
-    )
-    # optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
-
     epochs = train_cfg.get("epochs", 0)
     assert epochs > 0, "Please supply epoch > 0"
+
+    optimizer = create_optimizer(train_cfg["optimizer"], det_model)
+    lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer, max_lr=1e-2, total_steps=len(train_loader) * epochs, final_div_factor=1e7, div_factor=2, pct_start=0.02
+    )
+    # optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
 
     for epoch in range(epochs):
 
@@ -131,12 +130,14 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
             # Perform the parameter updates
             optimizer.step()
             lr_scheduler.step()
+            lr = optimizer.param_groups[0]["lr"]
 
             if idx % _LOG_INTERVAL == 0:
                 print(
                     f"Epoch: {epoch} step {idx}, "
                     f"clf loss {sum(clf_losses) / len(clf_losses):.5}, "
-                    f"reg loss {sum(reg_losses) / len(reg_losses):.5}"
+                    f"reg loss {sum(reg_losses) / len(reg_losses):.5}, "
+                    f"lr {lr:.5}"
                 )
 
         # Call evaluation function

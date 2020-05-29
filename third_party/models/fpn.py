@@ -8,23 +8,31 @@ import collections
 import torch
 
 
-class DepthwiseSeparable(torch.nn.Module):
-    def __init__(self, in_channels, out_channels) -> None:
-        super().__init__()
-        self.layers = torch.nn.Sequential(
-            torch.nn.Conv2d(
-                in_channels, in_channels, kernel_size=3, padding=1, groups=in_channels
-            ),
-            torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=True),
-        )
+def depthwise(in_channels: int, out_channels: int):
+    """ A depthwise separable linear layer. """
+    return [
+        torch.nn.Conv2d(
+            in_channels,
+            in_channels,
+            kernel_size=3,
+            padding=1,
+            bias=False,
+            groups=in_channels,
+        ),
+        torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=True),
+    ]
 
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        return self.layers(x)
+
+def conv3x3(in_channels: int, out_channels: int):
+    """ Simple Conv2d layer. """
+    return [
+        torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=True),
+    ]
 
 
 class FPN(torch.nn.Module):
     def __init__(
-        self, in_channels: List[int], out_channels: int, num_levels: int = 5
+        self, in_channels: List[int], out_channels: int, num_levels: int = 5, use_dw: bool = False
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -32,19 +40,21 @@ class FPN(torch.nn.Module):
         self.num_in = len(in_channels)
         self.num_levels = num_levels
 
+        if use_dw:
+            conv = depthwise
+        else:
+            conv = conv3x3
+
         # Construct the lateral convolutions to adapt the incoming feature maps
         # to the same channel depth.
-        self.lateral_convs = torch.nn.ModuleList(
-            [
-                DepthwiseSeparable(channels, out_channels)
-                for channels in reversed(in_channels)
-            ]
-        )
+        self.lateral_convs = torch.nn.ModuleList([])
+        for channels in reversed(in_channels):
+            self.lateral_convs.append(torch.nn.Conv2d(channels, out_channels, kernel_size=1))
 
         # Construct a convolution per level.
-        self.convs = torch.nn.ModuleList(
-            [DepthwiseSeparable(out_channels, out_channels) for _ in range(num_levels)]
-        )
+        self.convs = torch.nn.ModuleList([])
+        for _ in range(self.num_levels):
+            self.convs.extend(conv(out_channels, out_channels))
 
     def __call__(
         self, feature_maps: collections.OrderedDict

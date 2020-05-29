@@ -65,7 +65,7 @@ class Regressor:
         ), "Input boxes to Box2BoxTransform are not valid!"
         return deltas
 
-    def apply_deltas(self, deltas, boxes):
+    def apply_deltas(self, deltas: torch.Tensor, boxes: torch.Tensor):
         """
         Apply transformation `deltas` (dx, dy, dw, dh) to `boxes`.
         Args:
