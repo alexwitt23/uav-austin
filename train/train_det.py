@@ -93,7 +93,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         optimizer,
         max_lr=1e-2,
         total_steps=len(train_loader) * epochs,
-        final_div_factor=1e7,
+        final_div_factor=1e9,
         div_factor=2,
         pct_start=0.02,
     )
@@ -148,7 +148,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         # Call evaluation function
         det_model.eval()
         eval_results = eval(
-            det_model, eval_loader, use_cuda, save_best, eval_results, save_dir
+            det_model, eval_loader, eval_results, use_cuda, save_dir
         )
         det_model.train()
 
@@ -161,9 +161,8 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 def eval(
     det_model: torch.nn.Module,
     eval_loader: torch.utils.data.DataLoader,
+    previous_best: dict,
     use_cuda: bool = False,
-    save_best: bool = False,
-    previous_best: dict = None,
     save_dir: pathlib.Path = None,
 ) -> float:
     """ Evalulate the model against the evaulation set. Save the best 
@@ -191,10 +190,9 @@ def eval(
     previous_best = results if previous_best is None else previous_best
 
     for (metric, old), new in zip(previous_best.items(), results.values()):
-        if new > old:
+        if new >= old:
             previous_best[metric] = new
-
-    utils.save_model(det_model, save_dir / "detector.pt")
+            utils.save_model(det_model, save_dir / f"detector-{metric}.pt")
 
     return previous_best
 

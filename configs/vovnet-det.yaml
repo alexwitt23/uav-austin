@@ -1,8 +1,8 @@
 model:
   type: "detection"
-  backbone: "vovnet-19-slim"
+  backbone: "vovnet-19-slim-dw"
   fpn: 
-    type: "bifpn-b0"
+    type: "bifpn-b1"
     num_channels: 128
     use_dw: false
     levels: [3, 4, 5, 6, 7]
@@ -22,7 +22,7 @@ training:
     weight_decay: 1e-5
   epochs: 100
   gpu: True
-  train_batch_size: 26
-  eval_batch_size: 26
+  train_batch_size: 27
+  eval_batch_size: 27
   save_best: True
   
