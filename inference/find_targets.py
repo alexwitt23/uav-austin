@@ -41,7 +41,7 @@ def tile_image(
 
         # Transpose the images from BHWC -> BCHW
         tiles = torch.stack(tiles).permute(0, 3, 1, 2)
-        
+
     return tiles, coords
 
 
