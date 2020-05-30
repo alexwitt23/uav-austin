@@ -171,7 +171,7 @@ class Detector(torch.nn.Module):
                 in_channels=features,
                 out_channels=self.fpn_channels,
                 num_bifpns=self.num_bifpn,
-                num_levels_in=3,
+                levels=[3, 4, 5],
                 bifpn_height=len(features),
             )
         return fpn_
