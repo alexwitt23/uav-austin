@@ -76,7 +76,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
     det_model = detector.Detector(
         num_classes=len(generate_config.OD_CLASSES),
         model_params=model_cfg,
-        confidence=0.01,
+        confidence=0.05,
     )
     det_model.train()
     print(f"Model architecture: \n {det_model}")
@@ -104,7 +104,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         all_losses = []
         clf_losses = []
         reg_losses = []
-    
+
         for idx, (images, boxes, classes, _) in enumerate(train_loader):
 
             optimizer.zero_grad()
@@ -147,9 +147,7 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
 
         # Call evaluation function
         det_model.eval()
-        eval_results = eval(
-            det_model, eval_loader, eval_results, use_cuda, save_dir
-        )
+        eval_results = eval(det_model, eval_loader, eval_results, use_cuda, save_dir)
         det_model.train()
 
         print(

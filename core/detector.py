@@ -64,13 +64,13 @@ class Detector(torch.nn.Module):
         if version is not None:
 
             # Download the model. This has the yaml containing the backbone.
-            model_path = pull_assets.download_model(
+            model_dir = pull_assets.download_model(
                 model_type="detector", version=version
             )
 
             # Load the config in the package to determine the backbone
-            config = yaml.safe_load((model_path.parent / "config.yaml").read_text())
-            self._load_params(config)
+            config = yaml.safe_load((model_dir / "config.yaml").read_text())
+            self._load_params(config["model"])
         else:
             self._load_params(model_params)
 
@@ -111,7 +111,9 @@ class Detector(torch.nn.Module):
         )
 
         if version is not None:
-            self.load_state_dict(torch.load(model_path, map_location="cpu"))
+            self.load_state_dict(
+                torch.load(model_dir / "detector-ap30.pt", map_location="cpu")
+            )
 
         self.eval()
 

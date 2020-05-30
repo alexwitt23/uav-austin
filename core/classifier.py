@@ -47,11 +47,13 @@ class Classifier(torch.nn.Module):
                 model_type="classifier", version=version
             )
             # Load the config in the package to determine the backbone
-            config = yaml.safe_load((model_path.parent / "config.yaml").read_text())
+            config = yaml.safe_load((model_path / "config.yaml").read_text())
             backbone = config.get("model", {}).get("backbone", None)
             # Construct the model, then load the state
             self.model = self._load_backbone(backbone)
-            self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
+            self.model.load_state_dict(
+                torch.load(model_path / "classifier.pt", map_location="cpu")
+            )
         else:
             # If no version supplied, just load the backbone
             self.model = self._load_backbone(backbone)

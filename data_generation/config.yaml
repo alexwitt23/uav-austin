@@ -46,8 +46,8 @@ inputs:
     width: 1920
     height: 1072
   cropping:
-    width: 300
-    height: 300
+    width: 512
+    height: 512
     overlap: 100
   detector:
     width: 512
@@ -64,7 +64,7 @@ generate:
   delete_on_convert: false
   train_batch:
     offset: 0
-    images: 2000
+    images: 200
   eval_batch:
     offset: 0
     images: 200

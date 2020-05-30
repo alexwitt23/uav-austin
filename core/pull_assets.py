@@ -72,4 +72,4 @@ def download_model(model_type: str, version: str) -> pathlib.Path:
     filename = f"{model_type}-{version}"
     if not (config.ASSETS_DIR / filename).is_dir():
         download_file(f"{filename}.tar.gz", config.ASSETS_DIR / filename)
-    return config.ASSETS_DIR / filename / f"{model_type}.pt"
+    return config.ASSETS_DIR / filename

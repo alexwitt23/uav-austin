@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Contains logic for finding targets in images. """
+"""Contains logic for finding targets in images."""
 
 import argparse
 import pathlib
@@ -18,11 +18,35 @@ from data_generation import generate_config as config
 from third_party.models import postprocess
 
 
+def tile_image(
+    image: np.ndarray, tile_size: Tuple[int, int], overlap: int  # (H, W)
+) -> torch.Tensor:
+
+    tiles = []
+    coords = []
+    for x in range(0, image.shape[1], tile_size[1] - overlap):
+
+        # Shift back to extract tiles on the image
+        if x + tile_size[1] >= image.shape[1]:
+            x = image.shape[0] - tile_size[1]
+
+        for y in range(0, image.shape[0], tile_size[0] - overlap):
+            if y + tile_size[0] >= image.shape[0]:
+                y = image.shape[0] - tile_size[0]
+
+            tiles.append(
+                torch.Tensor(image[y : y + tile_size[0], x : x + tile_size[1]])
+            )
+            coords.append((x, y))
+
+        # Transpose the images from BHWC -> BCHW
+        tiles = torch.stack(tiles).permute(0, 3, 1, 2)
+        
+    return tiles, coords
+
+
 def create_batches(
-    image: np.ndarray,
-    tile_size: Tuple[int, int],  # (H, W)
-    overlap: int,
-    batch_size: int,
+    image_tensor: torch.Tensor, coords: List[Tuple[int, int]], batch_size: int
 ) -> Generator[types.BBox, None, None]:
     """ Creates batches of images based on the supplied params. The whole image
     is tiled first, the batches are generated.
@@ -35,23 +59,9 @@ def create_batches(
         Yields the image batch and the top left coordinate of the tile in the
         space of the original image.
     """
-    tiles = []
-    coords = []
-    for x in range(0, image.shape[1], tile_size[1] - overlap):
-        if x + tile_size[1] >= image.shape[1]:
-            x = image.shape[0] - tile_size[1]
-        for y in range(0, image.shape[0], tile_size[0] - overlap):
-            if y + tile_size[0] >= image.shape[0]:
-                y = image.shape[0] - tile_size[0]
-            tiles.append(
-                torch.Tensor(image[y : y + tile_size[0], x : x + tile_size[1], :])
-            )
-            coords.append((x, y))
 
-    tiles = torch.stack(tiles).permute(0, 3, 1, 2)
-
-    for idx in range(0, tiles.shape[0], batch_size):
-        yield tiles[idx : idx + batch_size], coords[idx : idx + batch_size]
+    for idx in range(0, image_tensor.shape[0], batch_size):
+        yield image_tensor[idx : idx + batch_size], coords[idx : idx + batch_size]
 
 
 def find_targets(
@@ -66,31 +76,38 @@ def find_targets(
         image = cv2.imread(str(image_path))
         assert image is not None, f"Could not read {image_path}."
         start = time.perf_counter()
+        image_tensor, coords = tile_image(image, config.CROP_SIZE, config.CROP_OVERLAP)
+
         # Get the image slices.
-        for tiles, coords in create_batches(
-            image, config.CROP_SIZE, config.CROP_OVERLAP, 100
-        ):
+        for tiles, coords in create_batches(image_tensor, coords, 30):
+
             if torch.cuda.is_available():
                 tiles = tiles.cuda()
 
             # Resize the slices for classification.
             tiles = torch.nn.functional.interpolate(tiles, config.PRECLF_SIZE)
+
             # Call the pre-clf to find the target tiles.
             preds = clf_model.classify(tiles)
-            # Get the ids of tiles that contain targets
-            target_ids = torch.where(preds == 0)[0].tolist()
 
-            if target_ids:
-                # Pass these target-containing tiles to the detector
-                det_tiles = torch.nn.functional.interpolate(
-                    tiles[target_ids], config.DETECTOR_SIZE
-                )
-                boxes = det_model(det_tiles)
-                retval.extend(zip(coords, boxes))
+            # Get the ids of tiles that contain targets
+            target_ids = preds == torch.ones_like(preds)
+
+            if target_ids.sum().item():
+                for det_tiles, det_coords in create_batches(
+                    tiles[target_ids], coords, 15
+                ):
+                    # Pass these target-containing tiles to the detector
+                    det_tiles = torch.nn.functional.interpolate(
+                        det_tiles, config.DETECTOR_SIZE
+                    )
+                    boxes = det_model(det_tiles)
+                    retval.extend(zip(det_coords, boxes))
             else:
                 retval.extend(zip(coords, []))
 
         targets = globalize_boxes(retval)
+
         print(time.perf_counter() - start)
 
         if visualization_dir is not None:
@@ -201,19 +218,18 @@ if __name__ == "__main__":
         img_width=config.PRECLF_SIZE[0],
         img_height=config.PRECLF_SIZE[1],
         use_cuda=torch.cuda.is_available(),
-        half_precision=True,
+        half_precision=torch.cuda.is_available(),
     )
     clf_model.eval()
     det_model = detector.Detector(
         version=args.det_version,
         num_classes=len(config.OD_CLASSES),
-        img_width=config.DETECTOR_SIZE[0],
-        img_height=config.DETECTOR_SIZE[1],
-        num_detections_per_image=3,
+        confidence=0.99,
         use_cuda=torch.cuda.is_available(),
-        half_precision=True,
+        half_precision=torch.cuda.is_available(),
     )
     det_model.eval()
+
     # Get either the image or images
     if args.image_path is None and args.image_dir is None:
         raise ValueError("Please supply either an image or directory of images.")
