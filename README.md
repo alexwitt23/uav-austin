@@ -1,10 +1,16 @@
 # TODO
-* Creating classification data shouldn't depend on making detection data first.
-Can these be made independent with shared utilities?
+- [ ] Devise a way to be able to create detection, classification, and feature data in 
+separate independently. 
 
-* Finalize detector training
+- [ ] Finalize training pipelines.
 
-* Finish inference pipeline
+- [ ] Finish inference pipeline.
+
+- [ ] Work on Box Dev integration if platform available. 
+
+- [ ] Weights & Biases integration once project is granted.
+
+- [ ] GitHub Actions CI
 
 ## Setup
 Make sure to have Python3 installed. If you would like to use a gpu, install 
@@ -13,7 +19,7 @@ CUDA and CUDNN. Next, run:
 pip install -U Cython==0.29.15 numpy==1.17.4
 pip install -r requirements.txt
 ```
-Then install either ``requirements-cpu.txt or `requirements-gpu.txt` depending 
+Then install either `requirements-cpu.txt` or `requirements-gpu.txt` depending 
 on your device.
 
 ## Data Generation
