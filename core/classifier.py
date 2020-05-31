@@ -51,7 +51,7 @@ class Classifier(torch.nn.Module):
             backbone = config.get("model", {}).get("backbone", None)
             # Construct the model, then load the state
             self.model = self._load_backbone(backbone)
-            self.model.load_state_dict(
+            self.load_state_dict(
                 torch.load(model_path / "classifier.pt", map_location="cpu")
             )
         else:

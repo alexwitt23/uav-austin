@@ -7,6 +7,7 @@ import time
 import json
 from typing import List, Tuple, Generator
 
+import albumentations
 import cv2
 import numpy as np
 import torch
@@ -18,29 +19,35 @@ from data_generation import generate_config as config
 from third_party.models import postprocess
 
 
+def _val_augmentations() -> albumentations.Compose:
+    return albumentations.Compose([albumentations.Normalize()])
+
+
 def tile_image(
     image: np.ndarray, tile_size: Tuple[int, int], overlap: int  # (H, W)
 ) -> torch.Tensor:
+
+    augmenation = _val_augmentations()
 
     tiles = []
     coords = []
     for x in range(0, image.shape[1], tile_size[1] - overlap):
 
         # Shift back to extract tiles on the image
-        if x + tile_size[1] >= image.shape[1]:
+        if x + tile_size[1] >= image.shape[1] and x != 0:
             x = image.shape[0] - tile_size[1]
 
         for y in range(0, image.shape[0], tile_size[0] - overlap):
-            if y + tile_size[0] >= image.shape[0]:
+            if y + tile_size[0] >= image.shape[0] and y != 0:
                 y = image.shape[0] - tile_size[0]
-
-            tiles.append(
-                torch.Tensor(image[y : y + tile_size[0], x : x + tile_size[1]])
-            )
+            tile = augmenation(image=image[y : y + tile_size[0], x : x + tile_size[1]])[
+                "image"
+            ]
+            tiles.append(torch.Tensor(tile))
             coords.append((x, y))
 
-        # Transpose the images from BHWC -> BCHW
-        tiles = torch.stack(tiles).permute(0, 3, 1, 2)
+    # Transpose the images from BHWC -> BCHW
+    tiles = torch.stack(tiles).permute(0, 3, 1, 2)
 
     return tiles, coords
 
@@ -79,23 +86,23 @@ def find_targets(
         image_tensor, coords = tile_image(image, config.CROP_SIZE, config.CROP_OVERLAP)
 
         # Get the image slices.
-        for tiles, coords in create_batches(image_tensor, coords, 30):
+        for tiles_batch, coords in create_batches(image_tensor, coords, 30):
 
             if torch.cuda.is_available():
-                tiles = tiles.cuda()
+                tiles_batch = tiles_batch.cuda().half()
 
             # Resize the slices for classification.
-            tiles = torch.nn.functional.interpolate(tiles, config.PRECLF_SIZE)
+            tiles = torch.nn.functional.interpolate(tiles_batch, config.PRECLF_SIZE)
 
             # Call the pre-clf to find the target tiles.
-            preds = clf_model.classify(tiles)
+            preds = clf_model.classify(tiles_batch)
 
             # Get the ids of tiles that contain targets
             target_ids = preds == torch.ones_like(preds)
 
             if target_ids.sum().item():
                 for det_tiles, det_coords in create_batches(
-                    tiles[target_ids], coords, 15
+                    tiles_batch[target_ids], coords, 15
                 ):
                     # Pass these target-containing tiles to the detector
                     det_tiles = torch.nn.functional.interpolate(
@@ -106,27 +113,29 @@ def find_targets(
             else:
                 retval.extend(zip(coords, []))
 
-        targets = globalize_boxes(retval)
-
+        targets = globalize_boxes(retval, config.PRECLF_SIZE[0])
         print(time.perf_counter() - start)
 
         if visualization_dir is not None:
             visualize_image(image_path.name, image, visualization_dir, targets)
 
 
-def globalize_boxes(results: List[postprocess.BoundingBox]) -> List[types.Target]:
+def globalize_boxes(
+    results: List[postprocess.BoundingBox], img_size: int
+) -> List[types.Target]:
     final_targets = []
     for coords, bboxes in results:
         for box in bboxes:
             relative_coords = box.box
             relative_coords += torch.Tensor(list(2 * coords)).int()
-            relative_coords = relative_coords.tolist()
+            relative_coords = (relative_coords * torch.Tensor([img_size])).tolist()
             final_targets.append(
                 types.Target(
-                    x=relative_coords[0],
-                    y=relative_coords[1],
-                    width=relative_coords[2] - relative_coords[0],
-                    height=relative_coords[3] - relative_coords[1],
+                    x=int(relative_coords[0]),
+                    y=int(relative_coords[1]),
+                    width=int(relative_coords[2] - relative_coords[0]),
+                    height=int(relative_coords[3] - relative_coords[1]),
+                    shape=types.Shape[config.OD_CLASSES[box.class_id].upper()],
                 )
             )
 
@@ -144,11 +153,20 @@ def visualize_image(
     for target in targets:
         top_left = (target.x, target.y)
         bottom_right = (target.x + target.width, target.y + target.height)
-        image = cv2.rectangle(image, top_left, bottom_right, (255, 255, 255), 3)
+        image = cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 1)
+        cv2.putText(
+            image,
+            target.shape.name.lower(),
+            (target.x, target.y - 3),  # Shift text tinsy bit
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.37,
+            (0, 255, 0),
+            1,
+        )
 
     cv2.imwrite(str(visualization_dir / image_name), image)
 
-
+# TODO(alex) use this
 def save_target_meta(filename_meta, filename_image, target):
     """ Save target metadata to a file. """
     with open(filename_meta, "w") as f:
@@ -224,11 +242,19 @@ if __name__ == "__main__":
     det_model = detector.Detector(
         version=args.det_version,
         num_classes=len(config.OD_CLASSES),
-        confidence=0.99,
+        confidence=0.8,
         use_cuda=torch.cuda.is_available(),
         half_precision=torch.cuda.is_available(),
     )
     det_model.eval()
+
+    # Do FP16 when inferencing
+    if torch.cuda.is_available():
+        det_model.cuda()
+        det_model.half()
+
+        clf_model.cuda()
+        clf_model.half()
 
     # Get either the image or images
     if args.image_path is None and args.image_dir is None:

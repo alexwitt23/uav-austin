@@ -93,8 +93,8 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         max_lr=1e-2,
         total_steps=len(train_loader) * epochs,
         final_div_factor=1e9,
-        div_factor=1,
-        pct_start=len(train_loader) / (len(train_loader) * epochs),
+        div_factor=2,
+        pct_start=2 * len(train_loader) / (len(train_loader) * epochs),
     )
     for epoch in range(epochs):
 
