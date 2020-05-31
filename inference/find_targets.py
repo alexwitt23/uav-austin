@@ -87,8 +87,9 @@ def find_targets(
             # Resize the slices for classification.
             tiles = torch.nn.functional.interpolate(tiles, config.PRECLF_SIZE)
 
-            # Call the pre-clf to find the target tiles.
-            preds = clf_model.classify(tiles)
+            with torch.no_grad():
+                # Call the pre-clf to find the target tiles.
+                preds = clf_model.classify(tiles)
 
             # Get the ids of tiles that contain targets
             target_ids = preds == torch.ones_like(preds)
@@ -101,7 +102,8 @@ def find_targets(
                     det_tiles = torch.nn.functional.interpolate(
                         det_tiles, config.DETECTOR_SIZE
                     )
-                    boxes = det_model(det_tiles)
+                    with torch.no_grad():
+                        boxes = det_model(det_tiles)
                     retval.extend(zip(det_coords, boxes))
             else:
                 retval.extend(zip(coords, []))
