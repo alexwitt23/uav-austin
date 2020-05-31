@@ -12,7 +12,6 @@ import json
 import time
 import shutil
 
-from pycocotools import coco, cocoeval
 import torch
 import numpy as np
 
@@ -95,10 +94,8 @@ def train(model_cfg: dict, train_cfg: dict, save_dir: pathlib.Path = None) -> No
         total_steps=len(train_loader) * epochs,
         final_div_factor=1e9,
         div_factor=2,
-        pct_start=0.02,
+        pct_start=2 * len(train_loader) / (len(train_loader) * epochs),
     )
-    # optimizer = swa.SWA(optimizer1, det_model, swa_start=0, swa_frequency=5)
-
     for epoch in range(epochs):
 
         all_losses = []

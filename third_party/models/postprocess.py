@@ -207,8 +207,9 @@ class PostProcessor:
         )
         keep = keep[: self.max_detections_per_image]
 
+        # TODO unhardcode
         return [
-            BoundingBox(box.int().cpu(), float(conf), int(cls_id))
+            BoundingBox(box.int().cpu() / torch.Tensor([512]), float(conf), int(cls_id))
             for box, conf, cls_id in zip(
                 boxes_all[keep], scores_all[keep], class_idxs_all[keep]
             )

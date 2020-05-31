@@ -11,8 +11,8 @@ training:
     start_lr: 1e-3
     max_lr: 1e-2
     end_lr: 1e-8
-    warmup_fraction: 0.1
-  epochs: 10
-  batch_size: 100
-  eval_batch_size: 100
+    warmup_fraction: 0.03
+  epochs: 15
+  batch_size: 150
+  eval_batch_size: 150
   
